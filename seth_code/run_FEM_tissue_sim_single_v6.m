@@ -26,8 +26,8 @@ model = 'LR1';      % guinea pig ventricle
 
 IDdist = 'chan'; % 'area'; %'specified'; % distribution within the ID patches
 
-FEM_file1 = 'FEMDATA_100Parts_IP60nm_P30nm_Map1_Gjy_Wvy.mat';
-FEM_file2 = 'FEMDATA_100Parts_IP15nm_P30nm_Map1_Gjy_Wvy.mat';
+FEM_file1 = 'FEMDATA_V_100Parts_IP16nm_P16nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat';
+FEM_file2 = 'FEMDATA_V_100Parts_IP60nm_P60nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat';
 
 clamp_Na = 0;
 clamp_K = 0;
@@ -115,10 +115,10 @@ trange = [max(0,(nbeats-2)*bcl-10) nbeats*bcl];  % time range to output values
 % model-independent parameters
 
 % load FEM data
-cd FEMdata/; 
+cd ../mesh_data; 
 load(FEM_file1); FEM_data1 = FEM_data;
 load(FEM_file2); FEM_data2 = FEM_data;
-cd ..; 
+cd ../seth_code; 
 
 p_ext = 150*10;  % extracellular resistivity, k-ohm*um
 f_disc = 1; f_bulk = 1; % cleft conductance scaling factors

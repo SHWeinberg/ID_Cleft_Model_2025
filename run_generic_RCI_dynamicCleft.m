@@ -5,7 +5,8 @@ model = 'ORd11';
 
 % tissue = '1D Mdisc cleft EpC';
 % tissue = '1D single cleft EpC';
-tissue = '1D Mdisc cleft ID EpC';
+% tissue = '1D Mdisc cleft ID EpC';
+tissue = '1D Mdisc cleft ID EpC hetg tissue';
 
 ID_dist = 'chan';
 GJ_dist = 'mesh';
@@ -137,10 +138,15 @@ end
 
 % cell and tissue parameters
 %     FEM_file = 'mesh_data/FEMDATA_V_100Parts_IP16nm_P17nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan_GJ_down_1.5_1.5.mat';
-FEM_file = 'mesh_data/FEMDATA_V_100Parts_IP16nm_P17nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat';
-load(FEM_file); 
+FEM_file_list =  ['FEMDATA_V_100Parts_IP16nm_P17nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat';...
+                  'FEMDATA_V_100Parts_IP60nm_P60nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat'];
+                                                   
+                           
+load(['mesh_data/',FEM_file_list(1,:)]); 
 Ncell = 5; % number of cells
-
+Njuncs = Ncell-1;
+tissue_legend = zeros(Njuncs,1) + 1; %index that chooses mesh from FEM_file_list; one less node than Ncell
+tissue_legend(3) = 2;
 switch tissue
     case '1D single cleft EpC'
         Nint = 2;   % number of intracellular nodes
@@ -381,6 +387,131 @@ switch tissue
             Gc_array, IDarea_vec, loc_mat, scaleI, gj_norm, rho_ie,flag_compute_ggap,ggap);
 
         Vol_cleft_vec =  fVol*repmat(FEM_data.partition_volume,4*(Ncell-1),1); % um^3
+
+    case '1D Mdisc cleft ID EpC hetg tissue'
+        
+        Nint = 1;   % number of intracellular nodes
+        D = 1; % cm^2/s
+        flag_compute_ggap = 0;
+
+        baseline_gj_area = 41.66;
+        baseline_ggap = 7.35e-04;
+        ggap_area_ratio = baseline_ggap./baseline_gj_area;
+%             ggap = ggap_area_ratio .* FEM_data.gj_total_area * D
+        ggap =  7.35e-04 * D;   % def  7.35e-04  3.6043e-04 1.4168e-04 4.0046e-05 7.9755e-06
+        fVol = 1;  % cleft volume scaling factor
+
+        icells = 1;
+
+        p_ext = 150*10;  %*10 extracellular resistivity, k-ohm*um
+        f_disc = 1; f_bulk = 1; % cleft conductance scaling factors
+
+        % Gc_array = f_disc*(FEM_data.cleft_adjacency_matrix)/p_ext;  % mS, Mdisc x Mdisc
+        % Gb_mat = f_bulk*FEM_data.bulk_adjacency_matrix'/p_ext;  % mS, 1 x Mdisc
+
+        % IDarea_vec = FEM_data.partition_surface;  % ID membrane patch surface area, um^2
+
+        load(['mesh_data/',FEM_file_list(tissue_legend(1),:)]); 
+        Mdisc = length(FEM_data.bulk_adjacency_matrix);
+
+        rho_ie = 1;  % ratio of intracellular (ID)-to-extracellular (cleft) resistivity
+
+        % GJ area / connection parameters
+        [~,ind_conn] = min(sum((FEM_data.partition_centers-mean(FEM_data.partition_centers)).^2,2));
+        
+        
+        
+        
+        Gc_array = zeros(Mdisc, Mdisc, Njuncs);
+        Gb_mat = zeros(Mdisc, Njuncs);
+        IDarea_vec = zeros(Mdisc, 2*Njuncs);
+        chan_area_norm_mat = zeros(Mdisc, 2*Njuncs);
+        Vol_cleft_vec = [];
+
+        for i = 1:Njuncs
+            load(['mesh_data/',FEM_file_list(tissue_legend(i),:)]); 
+            Gc_array(:,:,i) = f_disc*(FEM_data.cleft_adjacency_matrix)/p_ext;  % mS, Mdisc x Mdisc
+            Gb_mat(:,i) = f_bulk*FEM_data.bulk_adjacency_matrix'/p_ext;  % mS, 1 x Mdisc
+            IDarea_vec(:,2*i-1) = FEM_data.partition_surface;  % ID membrane patch surface area, um^2
+            IDarea_vec(:,2*i) = FEM_data.partition_surface;  % ID membrane patch surface area, um^2
+            Vol_cleft_vec =  [Vol_cleft_vec; fVol*repmat(FEM_data.partition_volume,4,1)]; % um^3
+%             gj_norm_list(:,i) = FEM_data.gj_area_norm;
+%             chan_area_norm_mat(:,2*i-1) = FEM_data.chan_area_norm;
+%             chan_area_norm_mat(:,2*i) = FEM_data.chan_area_norm;
+        end
+
+        switch GJ_dist
+            case "single"
+%                 % one GJ plaque closest to center node 
+%                 GJ_area = 100; GJ_adjacent = {[ind_conn find(Gc_array(ind_conn,:))]};
+%                 ggap_array = zeros(Mdisc, 1); % distribute to nodes
+%                 for i = 1:length(GJ_area)
+%                     ind = GJ_adjacent{i};
+%                     ggap_array(ind) = ggap_array(ind) + GJ_area(i)/length(ind);
+%                 end
+%                 gj_norm = ggap_array/sum(ggap_array);
+            case "equal"
+%                % equal distribution
+%                GJ_area = ones(1,Mdisc); GJ_adjacent = num2cell(1:Mdisc);
+%                ggap_array = zeros(Mdisc, 1); % distribute to nodes
+%                 for i = 1:length(GJ_area)
+%                     ind = GJ_adjacent{i};
+%                     ggap_array(ind) = ggap_array(ind) + GJ_area(i)/length(ind);
+%                 end
+%                 gj_norm = ggap_array/sum(ggap_array);
+            case "mesh"
+                for i = 1:Njuncs
+                    load(['mesh_data/',FEM_file_list(tissue_legend(i),:)]); 
+                    gj_norm_list(:,i) = FEM_data.gj_area_norm;
+
+                end
+        
+
+            case "mesh_scaled"  %chan - chan_mean +1)^scale - 1 + chan_mean
+%                 gj_norm = FEM_data.gj_area_norm;
+%                 gj_norm_scale = gj_norm + (1-mean(gj_norm));   
+%                 gj_new = (gj_norm_scale.^scale_gj_loc)./(sum(gj_norm_scale.^scale_gj_loc));
+%                 gj_norm = gj_new;    
+            
+
+        end
+
+        %channel localization
+        switch ID_dist
+            case 'chan'
+                loc_mat = zeros(Mdisc, Ncurrents, 2*Njuncs);
+                for i = 1:Njuncs
+                    load(['mesh_data/',FEM_file_list(tissue_legend(i),:)]);
+                    tmp = FEM_data.partition_surface; tmp = tmp/sum(tmp);            
+                    
+                    %pre junc - def symmetrical
+                    loc_mat(:,:,2*i-1) = loc_vec.*tmp;
+                    loc_mat(:,p.iina,2*i-1) = loc_vec(p.iina).*FEM_data.Na_area_norm;
+                    loc_mat(:,p.iinak,2*i-1) = loc_vec(p.iinak).*FEM_data.NKA_area_norm;
+                    loc_mat(:,p.iik1,2*i-1) = loc_vec(p.iik1).*FEM_data.Kir21_area_norm;
+                    
+                    %post junc
+                    loc_mat(:,:,2*i) = loc_vec.*tmp;
+                    loc_mat(:,p.iina,2*i) = loc_vec(p.iina).*FEM_data.Na_area_norm;
+                    loc_mat(:,p.iinak,2*i) = loc_vec(p.iinak).*FEM_data.NKA_area_norm;
+                    loc_mat(:,p.iik1,2*i) = loc_vec(p.iik1).*FEM_data.Kir21_area_norm;
+                end
+            case 'area'
+                tmp = IDarea_vec; tmp = tmp/sum(tmp);
+                loc_mat = tmp*loc_vec; % localization proportional to area, Mdisc x Ncurrents matrix
+                for i = 1:Njuncs
+                    load(['mesh_data/',FEM_file_list(tissue_legend(i),:)]);
+                    tmp = FEM_data.partition_surface; tmp = tmp/sum(tmp);            
+                    %pre junc - def symmetrical
+                    loc_mat(:,:,2*i-1) = loc_vec.*tmp;
+                    %post junc
+                    loc_mat(:,:,2*i) = loc_vec.*tmp;
+                end
+        end
+
+        [Rmat, Cmat, Iind, Nnodes, f_I, iEC, cleft, indices] = ...
+            generate_1D_Mdisc_cleft_ID_EpC_tissue_hetg(r, L, Ncell, Nint, Mdisc, D, Gb_mat, ...
+            Gc_array, IDarea_vec, loc_mat, scaleI, gj_norm_list, rho_ie,flag_compute_ggap,ggap);
 
 end
 
@@ -714,7 +845,8 @@ switch tissue
         i1 = round(.25*Ncell); i2 = round(.75*Ncell);
         cv_est = 100*(i2-i1)*(p.L/1000)./(tup_axial(i2,:)-tup_axial(i1,:));  % mm/ms = m/s, 100*m/s = cm/s
 
-    case {'1D Mdisc cleft EpC','1D Mdisc cleft ID EpC'}
+    case {'1D Mdisc cleft EpC','1D Mdisc cleft ID EpC', '1D Mdisc cleft ID EpC hetg tissue'}
+        %%
         s = 'k-';
         icleft = iEC(1:end-1);
         iintra = setdiff(1:Nnodes-1,icleft);
@@ -745,7 +877,7 @@ switch tissue
         % To exclude this junction, remove first / last membrane for post / pre
 
         % indices for a specific junction (pre and post)
-        Njunc = 3;
+        Njunc = 1;
         ind_post = ind_disc_post((Njunc-1)*Mdisc+2:Njunc*Mdisc+1);
         Vm_post = Vm_cable(ind_post,:); INa_post = INa_all(ind_post,:);
         ind_pre = ind_disc_pre((Njunc-1)*Mdisc+1:Njunc*Mdisc);
@@ -822,6 +954,7 @@ switch tissue
 %         figure
 %         plot(INa_all(ind_pre,:)'.*1e6)
 %         ylim([-140,20])
+%%
 
 end
 
