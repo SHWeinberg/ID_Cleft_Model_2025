@@ -459,21 +459,23 @@ switch tissue
 %                     ggap_array(ind) = ggap_array(ind) + GJ_area(i)/length(ind);
 %                 end
 %                 gj_norm = ggap_array/sum(ggap_array);
+
             case "mesh"
                 for i = 1:Njuncs
                     load(['mesh_data/',FEM_file_list(tissue_legend(i),:)]); 
                     gj_norm_list(:,i) = FEM_data.gj_area_norm;
 
                 end
-        
-
-            case "mesh_scaled"  %chan - chan_mean +1)^scale - 1 + chan_mean
-%                 gj_norm = FEM_data.gj_area_norm;
-%                 gj_norm_scale = gj_norm + (1-mean(gj_norm));   
-%                 gj_new = (gj_norm_scale.^scale_gj_loc)./(sum(gj_norm_scale.^scale_gj_loc));
-%                 gj_norm = gj_new;    
-            
-
+                
+           case "mesh_scaled"  %chan - chan_mean +1)^scale - 1 + chan_mean
+                for i = 1:Njuncs
+                    load(['mesh_data/',FEM_file_list(tissue_legend(i),:)]); 
+                    gj_norm = FEM_data.gj_area_norm;
+                    gj_norm_scale = gj_norm + (1-mean(gj_norm));   
+                    gj_new = (gj_norm_scale.^scale_gj_loc)./(sum(gj_norm_scale.^scale_gj_loc));
+                    gj_norm = gj_new; 
+                    gj_norm_list(:,i) = gj_norm;
+                end
         end
 
         %channel localization
