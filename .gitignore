@@ -1,6 +1,7 @@
 # ignore files
 *.log
 test.m
+*.mat
 
 # folders
 data
