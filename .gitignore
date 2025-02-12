@@ -1,2 +1,7 @@
 # ignore files
 *.log
+test.m
+
+# folders
+data
+

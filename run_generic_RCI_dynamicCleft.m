@@ -14,7 +14,7 @@ scale_gj_loc = 1;
 scale_chan_loc = 1;
 
 % time parameters
-bcl = 400;  % ms
+bcl = 800;  % ms
 nbeats = 2;
 T = bcl*nbeats;
 % T = 20;
@@ -24,8 +24,8 @@ save_flag_restart = 1;
 save_name_restart = 'baseline_D1_clamp';
 
 save_flag_data = 0;
-% save_name_data = 'baseline';
-save_name_data = save_name_restart;
+save_folder = "data/";
+save_name_data = save_folder + "test_mesh7.mat";
 t_save = [300:10:400];  % ms, time points to save all state variables
 
 % load parameters
@@ -35,8 +35,10 @@ load_case = 'restart';
 load_restart_t = 340; % time (ms) of restart, must be defined if restart using values in "restart" structure
 
 % time step (use different time step between stim and twin)
-dt1 = .01; % ms, dt between stim and twin (0.01 for EpC)
-dt2 = .1; % ms, dt between twin and next stim
+dt_factor = 2;
+
+dt1 = .01./dt_factor; % ms, dt between stim and twin (0.01 for EpC)
+dt2 = .1./dt_factor; % ms, dt between twin and next stim
 
 if scale_chan_loc>=500 || scale_gj_loc>=500
     dt1 = .01./5; % ms, dt between stim and twin (0.01 for EpC)
@@ -50,8 +52,8 @@ dtS2 = dt2/10;   % ms, cleft concentration time step 2
 Ns1 = round(dt1/dtS1);  % operator splitting for cleft concentrations
 Ns2 = round(dt2/dtS2);  % operator splitting for cleft concentrations
 % sampling interval
-dt1_samp = dt1; % ms 0
-dt2_samp = dt2; % ms
+dt1_samp = dt1*dt_factor*4; % ms 0
+dt2_samp = dt2*dt_factor*4; % ms
 twin = 50;
 trange = [0 T];
 
@@ -62,8 +64,8 @@ Ca_o = 1.8;                 % mM
 clamp_flag = [0; 0; 0; 0]; % Na, K, Ca, A (clamping the cleft), 1 = clamped
 
 ts = get_time_variable(trange, dt1_samp, dt2_samp, twin, bcl);
-save_int = 500;%last x ms to save
-ts_save = ts(ts>(ts(end) - save_int));
+save_int = 1000;%last x ms to save
+ts_save = ts(ts>=(ts(end) - save_int));
 Nts = length(ts_save);
 
 % cell geometry
@@ -138,15 +140,19 @@ end
 
 % cell and tissue parameters
 %     FEM_file = 'mesh_data/FEMDATA_V_100Parts_IP16nm_P17nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan_GJ_down_1.5_1.5.mat';
-FEM_file_list =  ['FEMDATA_V_100Parts_IP16nm_P17nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat';...
-                  'FEMDATA_V_100Parts_IP60nm_P60nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat'];
+% FEM_file_list =  ['FEMDATA_V_100Parts_IP16nm_P17nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat';...
+%                   'FEMDATA_V_100Parts_IP60nm_P60nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat'];
+              
+FEM_file_list =  {'FEMDATA_7.mat'};
                                                    
-                           
-load(['mesh_data/',FEM_file_list(1,:)]); 
+mesh_folder = "mesh_data/384/";
+load(mesh_folder + FEM_file_list{1}); 
 Ncell = 5; % number of cells
 Njuncs = Ncell-1;
 tissue_legend = zeros(Njuncs,1) + 1; %index that chooses mesh from FEM_file_list; one less node than Ncell
-tissue_legend(3) = 2;
+% tissue_legend(8:14) = 2;
+
+
 switch tissue
     case '1D single cleft EpC'
         Nint = 2;   % number of intracellular nodes
@@ -411,7 +417,8 @@ switch tissue
 
         % IDarea_vec = FEM_data.partition_surface;  % ID membrane patch surface area, um^2
 
-        load(['mesh_data/',FEM_file_list(tissue_legend(1),:)]); 
+        load(mesh_folder + FEM_file_list{tissue_legend(1)}); 
+
         Mdisc = length(FEM_data.bulk_adjacency_matrix);
 
         rho_ie = 1;  % ratio of intracellular (ID)-to-extracellular (cleft) resistivity
@@ -429,7 +436,7 @@ switch tissue
         Vol_cleft_vec = [];
 
         for i = 1:Njuncs
-            load(['mesh_data/',FEM_file_list(tissue_legend(i),:)]); 
+            load(mesh_folder + FEM_file_list{tissue_legend(i)}); 
             Gc_array(:,:,i) = f_disc*(FEM_data.cleft_adjacency_matrix)/p_ext;  % mS, Mdisc x Mdisc
             Gb_mat(:,i) = f_bulk*FEM_data.bulk_adjacency_matrix'/p_ext;  % mS, 1 x Mdisc
             IDarea_vec(:,2*i-1) = FEM_data.partition_surface;  % ID membrane patch surface area, um^2
@@ -462,14 +469,14 @@ switch tissue
 
             case "mesh"
                 for i = 1:Njuncs
-                    load(['mesh_data/',FEM_file_list(tissue_legend(i),:)]); 
+                    load(mesh_folder + FEM_file_list{tissue_legend(i)}); 
                     gj_norm_list(:,i) = FEM_data.gj_area_norm;
 
                 end
                 
            case "mesh_scaled"  %chan - chan_mean +1)^scale - 1 + chan_mean
                 for i = 1:Njuncs
-                    load(['mesh_data/',FEM_file_list(tissue_legend(i),:)]); 
+                    load(mesh_folder + FEM_file_list{tissue_legend(i)}); 
                     gj_norm = FEM_data.gj_area_norm;
                     gj_norm_scale = gj_norm + (1-mean(gj_norm));   
                     gj_new = (gj_norm_scale.^scale_gj_loc)./(sum(gj_norm_scale.^scale_gj_loc));
@@ -483,7 +490,7 @@ switch tissue
             case 'chan'
                 loc_mat = zeros(Mdisc, Ncurrents, 2*Njuncs);
                 for i = 1:Njuncs
-                    load(['mesh_data/',FEM_file_list(tissue_legend(i),:)]);
+                    load(mesh_folder + FEM_file_list{tissue_legend(i)});
                     tmp = FEM_data.partition_surface; tmp = tmp/sum(tmp);            
                     
                     %pre junc - def symmetrical
@@ -502,7 +509,7 @@ switch tissue
                 tmp = IDarea_vec; tmp = tmp/sum(tmp);
                 loc_mat = tmp*loc_vec; % localization proportional to area, Mdisc x Ncurrents matrix
                 for i = 1:Njuncs
-                    load(['mesh_data/',FEM_file_list(tissue_legend(i),:)]);
+                    load(mesh_folder + FEM_file_list{tissue_legend(i)});
                     tmp = FEM_data.partition_surface; tmp = tmp/sum(tmp);            
                     %pre junc - def symmetrical
                     loc_mat(:,:,2*i-1) = loc_vec.*tmp;
@@ -787,6 +794,11 @@ while ti < T
 
     Vm_old = Vm;
     ti = round(ti + dt, 5);
+    
+    if any(isnan(Vm))
+        disp("complex Vm")
+        break
+    end
 
     if ~mod(ti, dt_samp) && ti>(ts(end) - save_int)
         phi_mat(:,count+1) = phi_new;
@@ -879,7 +891,7 @@ switch tissue
         % To exclude this junction, remove first / last membrane for post / pre
 
         % indices for a specific junction (pre and post)
-        Njunc = 1;
+        Njunc = 3;
         ind_post = ind_disc_post((Njunc-1)*Mdisc+2:Njunc*Mdisc+1);
         Vm_post = Vm_cable(ind_post,:); INa_post = INa_all(ind_post,:);
         ind_pre = ind_disc_pre((Njunc-1)*Mdisc+1:Njunc*Mdisc);
@@ -914,15 +926,31 @@ switch tissue
 % 
 %         
         figure
-        plot(ts_save,Ca_cleft(:,1:end-1),'color',[1 0 0 0.5])
+        plot(ts_save,Ca_cleft(:,1:end),'color',[1 0 0 0.5])
         ylim([1,3])
 %         
         figure
-        plot(ts_save,Na_cleft(:,1:end-1),'color',[0 0 1 0.5])
+        plot(ts_save,Na_cleft(:,1:end),'color',[0 0 1 0.5])
         ylim([120,150])
         
 
+        for i = 1:25
+            phi = phi_axial(i,:);
+            phi(phi>-70) = 1;
+            phi(phi<=-70) = 0;
+            [~,peak_time] = findpeaks(phi);
+            
+            peak_list(i) = ts_save(peak_time(end));
+        end
         
+        figure
+        hold on
+        for i = 1:25
+            plot(ts_save,phi_axial(i,1:end))
+        end
+        
+        
+        CV = 0.01./(diff(peak_list)./1000);
 %         
 %         figure
 %         plot(ts_save,K_cleft(:,1:end-1),'color',[0 1 0 0.5])
@@ -933,7 +961,7 @@ switch tissue
 %         ylim([140,150])
 % 
         figure
-        plot(ts_save,phi_axial(5,2:end))
+        plot(ts_save,phi_axial(5,1:end))
 % 
 %         figure;
 %         h = pcolor(ts, 1:length(iintra), phi_mat(iintra,:));
@@ -962,40 +990,40 @@ end
 
 %% analysis
   
-list_higher_post = [];
-list_higher_pre = [];
-for i = 1:100
-    
-    if min(INa_pre(i,1:end)) > min(INa_post(i,1:end))
-        list_higher_post = [list_higher_post, i];
-    else
-        list_higher_pre = [list_higher_pre, i];
-    end
-end
-
-figure
-plot3(FEM_data.partition_centers(list_higher_post, 1), ...
-      FEM_data.partition_centers(list_higher_post, 2), ...
-      FEM_data.partition_centers(list_higher_post, 3), '.','color','red', 'markersize',10)
-hold on
-plot3(FEM_data.partition_centers(list_higher_pre, 1), ...
-      FEM_data.partition_centers(list_higher_pre, 2), ...
-      FEM_data.partition_centers(list_higher_pre, 3), '.','color','blue', 'markersize',10)
-
-  
-  
-figure
-plot(ts_save,INa_pre(list_higher_post,1:end),'color',[0 0 1 0.5])
-hold on
-plot(ts_save,INa_post(list_higher_post,1:end),'color',[0 1 1 0.5])
-xlim([400.8,401.6])
-
-figure
-plot(ts_save,Na_cleft(list_higher_post,1:end-1),'color',[0 0 1 0.5])
-hold on
-plot(ts_save,Na_cleft(list_higher_pre,1:end-1),'color',[0 1 1 0.5])
-
-xlim([400.8,405.6])
+% list_higher_post = [];
+% list_higher_pre = [];
+% for i = 1:100
+%     
+%     if min(INa_pre(i,1:end)) > min(INa_post(i,1:end))
+%         list_higher_post = [list_higher_post, i];
+%     else
+%         list_higher_pre = [list_higher_pre, i];
+%     end
+% end
+% 
+% figure
+% plot3(FEM_data.partition_centers(list_higher_post, 1), ...
+%       FEM_data.partition_centers(list_higher_post, 2), ...
+%       FEM_data.partition_centers(list_higher_post, 3), '.','color','red', 'markersize',10)
+% hold on
+% plot3(FEM_data.partition_centers(list_higher_pre, 1), ...
+%       FEM_data.partition_centers(list_higher_pre, 2), ...
+%       FEM_data.partition_centers(list_higher_pre, 3), '.','color','blue', 'markersize',10)
+% 
+%   
+%   
+% figure
+% plot(ts_save,INa_pre(list_higher_post,1:end),'color',[0 0 1 0.5])
+% hold on
+% plot(ts_save,INa_post(list_higher_post,1:end),'color',[0 1 1 0.5])
+% xlim([400.8,401.6])
+% 
+% figure
+% plot(ts_save,Na_cleft(list_higher_post,1:end-1),'color',[0 0 1 0.5])
+% hold on
+% plot(ts_save,Na_cleft(list_higher_pre,1:end-1),'color',[0 1 1 0.5])
+% 
+% xlim([400.8,405.6])
 
 
     
@@ -1025,41 +1053,13 @@ end
 if save_flag_data   
    p.loc_vec = loc_vec;
    %tup and trepol are already indexed
-   save(save_name_data,'p','iEC','Nnodes','Ncell','Ncurrents','indices','Mdisc','phi_mat','Iind','S_mat','I_all','ts','model','FEM_file','tup','trepol','cv_est');
+   save(save_name_data,'p','iEC','Nnodes','Ncell','Ncurrents','indices','Mdisc',...
+       'phi_mat','Iind','S_mat','I_all','ts','model','FEM_file_list',...
+       'tissue_legend','tup','trepol','cv_est','ts_save','Nint');
 end
 
 
 
-
-
-% % D=1
-% scale_vec = [1 50 100 250 500 750 1000 1500 2000];
-% cv_scale = [40.19 40 39.34 33.79 23.03 17.00 14 12.25 12.01];
-% plot(scale_vec,cv_scale)
-% 
-% hold on
-% %D=.1
-% scale_vec = [1 50 100 250 500 750 1000 1500 2000];
-% cv_scale = [15.31 15.29 15.25 14.65 12.56 11.30 10.82 10.61 10.59];
-% plot(scale_vec,cv_scale)
-% 
-% %D=10
-% scale_vec = [1 50 100 250 500 750 1000 1500 2000];
-% cv_scale = [61.53,61.47,61.24,57.47,38.15,26.75,20.46,14.19,12.53];
-% plot(scale_vec,cv_scale)
-
-
-
-% % D = 1;
-% scale_vec = [1 50 100 250 500 750 1000 1500 2000];
-% cv_scale = [40.60,40.66,40.72,40.71,40.01,39.42,39.11,38.84,38.63];
-% plot(scale_vec,cv_scale)
-% hold on
-% 
-% %D = .1
-% scale_vec = [1 50 100 250 500 750 1000 1500 2000];
-% cv_scale = [15.23,15.29,15.39,15.64,14.55,13.41,12.90,12.59,11.91]
-% plot(scale_vec,cv_scale)
 
 
 
