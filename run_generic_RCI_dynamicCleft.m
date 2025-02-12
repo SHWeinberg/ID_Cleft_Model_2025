@@ -20,7 +20,7 @@ T = bcl*nbeats;
 % T = 20;
 
 % save parameters
-save_flag_restart = 1;
+save_flag_restart = 0;
 save_name_restart = 'baseline_D1_clamp';
 
 save_flag_data = 0;
