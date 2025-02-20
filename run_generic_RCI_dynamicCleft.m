@@ -35,7 +35,7 @@ load_case = 'restart';
 load_restart_t = 340; % time (ms) of restart, must be defined if restart using values in "restart" structure
 
 % time step (use different time step between stim and twin)
-dt_factor = 2;
+dt_factor = 1;
 
 dt1 = .01./dt_factor; % ms, dt between stim and twin (0.01 for EpC)
 dt2 = .1./dt_factor; % ms, dt between twin and next stim
@@ -143,7 +143,7 @@ end
 % FEM_file_list =  ['FEMDATA_V_100Parts_IP16nm_P17nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat';...
 %                   'FEMDATA_V_100Parts_IP60nm_P60nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat'];
               
-FEM_file_list =  {'FEMDATA_7.mat'};
+FEM_file_list =  {'FEMDATA_12.mat'};
                                                    
 mesh_folder = "mesh_data/384/";
 load(mesh_folder + FEM_file_list{1}); 
