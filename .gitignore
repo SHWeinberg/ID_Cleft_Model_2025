@@ -2,6 +2,7 @@
 *.log
 test.m
 *.mat
+*.sh
 
 # folders
 data
