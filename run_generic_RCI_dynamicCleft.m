@@ -20,14 +20,15 @@ T = bcl*nbeats;
 % T = 20;
 
 % save parameters
-save_flag_restart = 0;
-save_name_restart = 'baseline_D1_clamp';
-
 save_flag_data = 1;
-save_folder = "data/";
+save_folder = "data/save/";
 save_name = "1000ms_25b_baseline";
 save_name_data = save_folder + save_name;
 t_save = [300:10:400];  % ms, time points to save all state variables
+
+save_flag_restart = 1;
+restart_folder = "data/restart/";
+save_name_restart = restart_folder + save_name;
 
 % load parameters
 load_flag = 0;
