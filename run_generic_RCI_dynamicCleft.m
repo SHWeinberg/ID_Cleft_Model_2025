@@ -66,7 +66,7 @@ Ca_o = 1.8;                 % mM
 clamp_flag = [0; 0; 0; 0]; % Na, K, Ca, A (clamping the cleft), 1 = clamped
 
 ts = get_time_variable(trange, dt1_samp, dt2_samp, twin, bcl);
-save_int = 1100;%last x ms to save
+save_int = bcl+50;%last x ms to save - save last cycle + 50ms before
 ts_save = ts(ts>=(ts(end) - save_int));
 Nts = length(ts_save);
 
