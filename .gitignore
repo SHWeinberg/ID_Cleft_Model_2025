@@ -1,9 +1,8 @@
 # ignore files
 *.log
 test.m
-*.mat
 *.sh
 *.out
 
 # folders
-
+data
