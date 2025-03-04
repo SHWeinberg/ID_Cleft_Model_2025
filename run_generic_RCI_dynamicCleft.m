@@ -14,8 +14,8 @@ scale_gj_loc = 1;
 scale_chan_loc = 1;
 
 % time parameters
-bcl = 800;  % ms
-nbeats = 2;
+bcl = 1000;  % ms
+nbeats = 5;
 T = bcl*nbeats;
 % T = 20;
 
@@ -23,9 +23,10 @@ T = bcl*nbeats;
 save_flag_restart = 0;
 save_name_restart = 'baseline_D1_clamp';
 
-save_flag_data = 0;
+save_flag_data = 1;
 save_folder = "data/";
-save_name_data = save_folder + "test_mesh7.mat";
+save_name = "1000ms_25b_baseline";
+save_name_data = save_folder + save_name;
 t_save = [300:10:400];  % ms, time points to save all state variables
 
 % load parameters
@@ -64,7 +65,7 @@ Ca_o = 1.8;                 % mM
 clamp_flag = [0; 0; 0; 0]; % Na, K, Ca, A (clamping the cleft), 1 = clamped
 
 ts = get_time_variable(trange, dt1_samp, dt2_samp, twin, bcl);
-save_int = 1000;%last x ms to save
+save_int = 1100;%last x ms to save
 ts_save = ts(ts>=(ts(end) - save_int));
 Nts = length(ts_save);
 
@@ -143,11 +144,11 @@ end
 % FEM_file_list =  ['FEMDATA_V_100Parts_IP16nm_P17nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat';...
 %                   'FEMDATA_V_100Parts_IP60nm_P60nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat'];
               
-FEM_file_list =  {'FEMDATA_12.mat'};
+FEM_file_list =  {'FEMDATA_baseline.mat'};
                                                    
-mesh_folder = "mesh_data/384/";
+mesh_folder = "mesh_data/";
 load(mesh_folder + FEM_file_list{1}); 
-Ncell = 5; % number of cells
+Ncell = 50; % number of cells
 Njuncs = Ncell-1;
 tissue_legend = zeros(Njuncs,1) + 1; %index that chooses mesh from FEM_file_list; one less node than Ncell
 % tissue_legend(8:14) = 2;
