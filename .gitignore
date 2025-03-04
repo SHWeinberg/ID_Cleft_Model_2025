@@ -3,6 +3,7 @@
 test.m
 *.mat
 *.sh
+*.out
 
 # folders
 
