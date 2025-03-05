@@ -1048,7 +1048,7 @@ if save_flag_restart
    restart.S = S_save;
    restart.I = I_save;
 
-   save(save_name_restart,'restart', 'final');
+   save(save_name_restart,'restart', 'final', '-v7.3');
 
 end
 
@@ -1057,7 +1057,7 @@ if save_flag_data
    %tup and trepol are already indexed
    save(save_name_data,'p','iEC','Nnodes','Ncell','Ncurrents','indices','Mdisc',...
        'phi_mat','Iind','S_mat','I_all','ts','model','FEM_file_list',...
-       'tissue_legend','tup','trepol','cv_est','ts_save','Nint');
+       'tissue_legend','tup','trepol','cv_est','ts_save','Nint', '-v7.3');
 end
 
 
