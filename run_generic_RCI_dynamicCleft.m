@@ -15,8 +15,8 @@ scale_chan_loc = 1;
 D_coupling = 0.1;
 
 % time parameters
-bcl = 300;  % ms
-nbeats = 10;
+bcl = 100;  % ms
+nbeats = 3;
 T = bcl*nbeats;
 % T = 20;
 
@@ -86,14 +86,14 @@ FEM_file_list =  {'FEMDATA_baseline.mat','FEMDATA_p60_ip60.mat'};
                                                    
 mesh_folder = "mesh_data/";
 load(mesh_folder + FEM_file_list{1}); 
-Ncell = 50; % number of cells
+Ncell = 5; % number of cells
 Njuncs = Ncell-1;
 tissue_legend = zeros(Njuncs,1) + 1; %index that chooses mesh from FEM_file_list; one less node than Ncell
-tissue_legend(21:30) = 2;
+% tissue_legend(21:30) = 2;
 
 
 % save parameters
-save_flag_data = 1;
+save_flag_data = 0;
 save_folder = "data/save/";
 save_name = "1000ms_5b_mid_60_60_cycle" + string(bcl) + "_beats" + string(nbeats) + "_D" + string(D_coupling);
 % save_name = "test_profile";
@@ -101,7 +101,7 @@ save_name_data = save_folder + save_name;
 save_name_data = strrep(save_name_data,'.',''); %remove dot to prevent file extension errors
 t_save = [300:10:400];  % ms, time points to save all state variables
 
-save_flag_restart = 1;
+save_flag_restart = 0;
 restart_folder = "data/restart/";
 save_name_restart = restart_folder + save_name;
 
@@ -753,8 +753,12 @@ tup = nan(Npatches,1);
 trepol = nan(Npatches,1);
 Vm_old = Vm; Vthresh = -60; % mV
 
+%get indices to save phi_axial for full length
+icleft = iEC(1:end-1);
+iintra = setdiff(1:Nnodes-1,icleft);
 [~,ind] = sort(Iind(:,1));
 [ind_axial, ~] = ind2sub([length(ind) length(indices.ind_axial)], find(ind == indices.ind_axial));
+
 ti = 0;  % initialize time
 tic
 while ti < T
@@ -821,7 +825,8 @@ while ti < T
 
     %save whole sim - just phi_axial
     if ~mod(ti, dt_samp) 
-        phi_axial_all(:,count_all) = phi_new(ind_axial);
+        phi_i = phi_new(iintra);
+        phi_axial_all(:,count_all) = phi_i(ind_axial); 
         count_all = count_all + 1;
     end
     phi_i = phi_new;

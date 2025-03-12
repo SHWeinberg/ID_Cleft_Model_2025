@@ -3,6 +3,7 @@
 test.m
 *.sh
 *.out
+*.asv
 
 # folders
 data
