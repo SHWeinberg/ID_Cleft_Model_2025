@@ -12,23 +12,13 @@ ID_dist = 'chan';
 GJ_dist = 'mesh';
 scale_gj_loc = 1;
 scale_chan_loc = 1;
+D_coupling = 0.1;
 
 % time parameters
-bcl = 1000;  % ms
-nbeats = 5;
+bcl = 300;  % ms
+nbeats = 10;
 T = bcl*nbeats;
 % T = 20;
-
-% save parameters
-save_flag_data = 1;
-save_folder = "data/save/";
-save_name = "1000ms_25b_baseline";
-save_name_data = save_folder + save_name;
-t_save = [300:10:400];  % ms, time points to save all state variables
-
-save_flag_restart = 1;
-restart_folder = "data/restart/";
-save_name_restart = restart_folder + save_name;
 
 % load parameters
 load_flag = 0;
@@ -67,6 +57,7 @@ clamp_flag = [0; 0; 0; 0]; % Na, K, Ca, A (clamping the cleft), 1 = clamped
 
 ts = get_time_variable(trange, dt1_samp, dt2_samp, twin, bcl);
 save_int = bcl+50;%last x ms to save - save last cycle + 50ms before
+% save_int = 1100;
 ts_save = ts(ts>=(ts(end) - save_int));
 Nts = length(ts_save);
 
@@ -85,6 +76,36 @@ locIK1 = 0.2; %0.2
 locICa = 0.2; %0.2
 locINaK = 0.2; %0.2
 locUniform = 2*Ad/Atot;
+
+% cell and tissue parameters
+%     FEM_file = 'mesh_data/FEMDATA_V_100Parts_IP16nm_P17nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan_GJ_down_1.5_1.5.mat';
+% FEM_file_list =  ['FEMDATA_V_100Parts_IP16nm_P17nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat';...
+%                   'FEMDATA_V_100Parts_IP60nm_P60nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat'];
+              
+FEM_file_list =  {'FEMDATA_baseline.mat','FEMDATA_p60_ip60.mat'};
+                                                   
+mesh_folder = "mesh_data/";
+load(mesh_folder + FEM_file_list{1}); 
+Ncell = 50; % number of cells
+Njuncs = Ncell-1;
+tissue_legend = zeros(Njuncs,1) + 1; %index that chooses mesh from FEM_file_list; one less node than Ncell
+tissue_legend(21:30) = 2;
+
+
+% save parameters
+save_flag_data = 1;
+save_folder = "data/save/";
+save_name = "1000ms_5b_mid_60_60_cycle" + string(bcl) + "_beats" + string(nbeats) + "_D" + string(D_coupling);
+% save_name = "test_profile";
+save_name_data = save_folder + save_name;
+save_name_data = strrep(save_name_data,'.',''); %remove dot to prevent file extension errors
+t_save = [300:10:400];  % ms, time points to save all state variables
+
+save_flag_restart = 1;
+restart_folder = "data/restart/";
+save_name_restart = restart_folder + save_name;
+
+disp(save_name);
 
 switch model
     case 'LR1'
@@ -139,28 +160,12 @@ switch model
         loc_vec(p.iiks) = locUniform;
 
 end
-
-% cell and tissue parameters
-%     FEM_file = 'mesh_data/FEMDATA_V_100Parts_IP16nm_P17nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan_GJ_down_1.5_1.5.mat';
-% FEM_file_list =  ['FEMDATA_V_100Parts_IP16nm_P17nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat';...
-%                   'FEMDATA_V_100Parts_IP60nm_P60nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat'];
-              
-FEM_file_list =  {'FEMDATA_baseline.mat'};
-                                                   
-mesh_folder = "mesh_data/";
-load(mesh_folder + FEM_file_list{1}); 
-Ncell = 50; % number of cells
-Njuncs = Ncell-1;
-tissue_legend = zeros(Njuncs,1) + 1; %index that chooses mesh from FEM_file_list; one less node than Ncell
-% tissue_legend(8:14) = 2;
-
-
 switch tissue
     case '1D single cleft EpC'
         Nint = 2;   % number of intracellular nodes
         Mdisc = 1;
         icells = 2;
-        D = 1; % cm^2/s
+        D = D_coupling; % cm^2/s
         w = 10e-3;  % cleft width, um
         fVol = 0.1;  % cleft volume scaling factor
         Gc_array = 0;
@@ -171,7 +176,7 @@ switch tissue
 
     case '1D Mdisc cleft EpC'
         Nint = 2;   % number of intracellular nodes
-        D = 1; % cm^2/s
+        D = D_coupling; % cm^2/s
         fVol = 1;  % cleft volume scaling factor
 
         icells = 1;
@@ -267,7 +272,7 @@ switch tissue
 
     case '1D Mdisc cleft ID EpC'
         Nint = 1;   % number of intracellular nodes
-        D = 1; % cm^2/s
+        D = D_coupling; % cm^2/s
         flag_compute_ggap = 0;
 
         baseline_gj_area = 41.66;
@@ -399,7 +404,7 @@ switch tissue
     case '1D Mdisc cleft ID EpC hetg tissue'
         
         Nint = 1;   % number of intracellular nodes
-        D = 1; % cm^2/s
+        D = D_coupling; % cm^2/s
         flag_compute_ggap = 0;
 
         baseline_gj_area = 41.66;
@@ -735,7 +740,8 @@ H = sparse(H);
 ionic_fun = str2func(['@(t,x,p,S) ',ionic_fun_name,'(t,x,p,S)']);
 p.f_I = f_I;
 
-count = 1; phi_i = phi_mat(:,1); G_i = G_mat(:,1);
+count = 1; count_all = 1; 
+phi_i = phi_mat(:,1); G_i = G_mat(:,1);
 % collect Vm
 Vm = phi_i(Iind(:,1)) - phi_i(Iind(:,2));
 Sp = [Scleft(Iind(:,2)); Scleft(Iind(:,2)+Nnodes); Scleft(Iind(:,2)+2*Nnodes)];
@@ -747,6 +753,8 @@ tup = nan(Npatches,1);
 trepol = nan(Npatches,1);
 Vm_old = Vm; Vthresh = -60; % mV
 
+[~,ind] = sort(Iind(:,1));
+[ind_axial, ~] = ind2sub([length(ind) length(indices.ind_axial)], find(ind == indices.ind_axial));
 ti = 0;  % initialize time
 tic
 while ti < T
@@ -802,12 +810,19 @@ while ti < T
         break
     end
 
+    %save last beat - for all 
     if ~mod(ti, dt_samp) && ti>(ts(end) - save_int)
         phi_mat(:,count+1) = phi_new;
         G_mat(:,count+1) = G_new;
         S_mat(:,count+1) = Scleft;
         I_all(:,count) = I_new;
         count = count + 1;
+    end
+
+    %save whole sim - just phi_axial
+    if ~mod(ti, dt_samp) 
+        phi_axial_all(:,count_all) = phi_new(ind_axial);
+        count_all = count_all + 1;
     end
     phi_i = phi_new;
     G_i = G_new;
@@ -823,209 +838,6 @@ while ti < T
     end
 end
 toc
-%% plotting 
-switch tissue
-
-    case '1D single cleft EpC'
-        icleft = iEC(1:end-1);
-        iintra = setdiff(1:Nnodes-1,icleft);
-        phi_i = phi_mat(iintra,:);
-        phi_cleft = phi_mat(icleft,:);
-
-        % collect / sort Vm, ionic currents
-        Vm = phi_mat(Iind(:,1),:) - phi_mat(Iind(:,2),:);
-
-        [~,ind] = sort(Iind(:,1));
-        Iind_cable = Iind(ind,:);
-        Vm_cable = Vm(ind,:);
-        tup = tup(ind,:); trepol = trepol(ind,:);
-
-
-        INa_all = I_all(p.iina:Ncurrents:end,:);
-        INa_all = INa_all(ind,:); % sort to match Vm order
-
-        [ind_axial, ~] = ind2sub([length(ind) length(indices.ind_axial)], find(ind == indices.ind_axial));
-        [ind_disc_pre, ~] = ind2sub([length(ind) length(indices.ind_disc_pre)], find(ind == indices.ind_disc_pre));
-        [ind_disc_post, ~] = ind2sub([length(ind) length(indices.ind_disc_post)], find(ind == indices.ind_disc_post));
-        INa_axial = INa_all(ind_axial,:);
-        INa_disc_pre = INa_all(ind_disc_pre,:);
-        INa_disc_post = INa_all(ind_disc_post,:);
-
-        subplot(3,1,1); h = pcolor(ts, 1:Nnodes-1, phi_mat(1:end-1,:));
-        set(gca,'ydir','reverse');
-        h.LineStyle = 'none';
-        subplot(3,1,2); plot(ts, phi_i); hold on;
-        subplot(3,1,3); plot(ts, phi_cleft); hold on;
-
-        tup_axial = tup(ind_axial(1:Nint:end),:);
-        i1 = round(.25*Ncell); i2 = round(.75*Ncell);
-        cv_est = 100*(i2-i1)*(p.L/1000)./(tup_axial(i2,:)-tup_axial(i1,:));  % mm/ms = m/s, 100*m/s = cm/s
-
-    case {'1D Mdisc cleft EpC','1D Mdisc cleft ID EpC', '1D Mdisc cleft ID EpC hetg tissue'}
-        %%
-        s = 'k-';
-        icleft = iEC(1:end-1);
-        iintra = setdiff(1:Nnodes-1,icleft);
-        phi_i = phi_mat(iintra,:);
-        phi_cleft = phi_mat(icleft,:);
-
-        % collect Vm / ionic currents
-        Vm = phi_mat(Iind(:,1),:) - phi_mat(Iind(:,2),:);
-
-        [~,ind] = sort(Iind(:,1));
-        Iind_cable = Iind(ind,:);
-        Vm_cable = Vm(ind,:);
-        tup = tup(ind,:); trepol = trepol(ind,:);
-
-        INa_all = I_all(p.iina:Ncurrents:end,:);
-        INa_all = INa_all(ind,:); % sort to match Vm order
-
-        % sort axial / pre-/post-junctional membrane indices to match Vm order
-        [ind_axial, ~] = ind2sub([length(ind) length(indices.ind_axial)], find(ind == indices.ind_axial));
-        [ind_disc_pre, ~] = ind2sub([length(ind) length(indices.ind_disc_pre)], find(ind == indices.ind_disc_pre));
-        [ind_disc_post, ~] = ind2sub([length(ind) length(indices.ind_disc_post)], find(ind == indices.ind_disc_post));
-        INa_axial = INa_all(ind_axial,:);
-        INa_disc_pre = INa_all(ind_disc_pre,:);
-        INa_disc_post = INa_all(ind_disc_post,:);
-        % Note there is only 1 post-junctional membrane for cell 1 and 
-        % 1 pre-junctional membrane for cell N for all values of Mdisc, 
-        % which is coupled directly to the bulk
-        % To exclude this junction, remove first / last membrane for post / pre
-
-        % indices for a specific junction (pre and post)
-        Njunc = 3;
-        ind_post = ind_disc_post((Njunc-1)*Mdisc+2:Njunc*Mdisc+1);
-        Vm_post = Vm_cable(ind_post,:); INa_post = INa_all(ind_post,:);
-        ind_pre = ind_disc_pre((Njunc-1)*Mdisc+1:Njunc*Mdisc);
-        Vm_pre = Vm_cable(ind_pre,:); INa_pre = INa_all(ind_pre,:);
-
-        Na_cleft_all = S_mat(iEC,:);
-        Na_cleft = Na_cleft_all((Njunc-1)*Mdisc+1:Njunc*Mdisc,:);       
-        K_cleft_all = S_mat(iEC+Nnodes,:);
-        K_cleft = K_cleft_all((Njunc-1)*Mdisc+1:Njunc*Mdisc,:);     
-        Ca_cleft_all = S_mat(iEC+2*Nnodes,:);
-        Ca_cleft = Ca_cleft_all((Njunc-1)*Mdisc+1:Njunc*Mdisc,:); 
-        A_cleft_all = S_mat(iEC+3*Nnodes,:);
-        A_cleft = A_cleft_all((Njunc-1)*Mdisc+1:Njunc*Mdisc,:);
-        
-        
-        
-
-%             figure(100); subplot(2,1,1);F
-%             plot(ts, Vm_post,'k',ts, Vm_post(ind_conn,:),'r--'); title('single GJ');
-% 
-
-
-
-        tup_axial = tup(ind_axial(1:Nint:end),:);
-        i1 = round(.25*Ncell); i2 = round(.75*Ncell);
-        cv_est = 100*(i2-i1)*(p.L/1000)./(tup_axial(i2,:)-tup_axial(i1,:));  % mm/ms = m/s, 100*m/s = cm/s
-        
-        
-        
-        phi_i = phi_mat(iintra,:);
-        phi_axial = phi_i(ind_axial,:); 
-% 
-%         
-        figure
-        plot(ts_save,Ca_cleft(:,1:end),'color',[1 0 0 0.5])
-        ylim([1,3])
-%         
-        figure
-        plot(ts_save,Na_cleft(:,1:end),'color',[0 0 1 0.5])
-        ylim([120,150])
-        
-
-        for i = 1:25
-            phi = phi_axial(i,:);
-            phi(phi>-70) = 1;
-            phi(phi<=-70) = 0;
-            [~,peak_time] = findpeaks(phi);
-            
-            peak_list(i) = ts_save(peak_time(end));
-        end
-        
-        figure
-        hold on
-        for i = 1:25
-            plot(ts_save,phi_axial(i,1:end))
-        end
-        
-        
-        CV = 0.01./(diff(peak_list)./1000);
-%         
-%         figure
-%         plot(ts_save,K_cleft(:,1:end-1),'color',[0 1 0 0.5])
-%         ylim([4.5,8])
-%         
-%         figure
-%         plot(ts_save,A_cleft(:,1:end-1),'color',[0 0 0 0.5])
-%         ylim([140,150])
-% 
-        figure
-        plot(ts_save,phi_axial(5,1:end))
-% 
-%         figure;
-%         h = pcolor(ts, 1:length(iintra), phi_mat(iintra,:));
-%         set(gca,'ydir','reverse');
-%         h.LineStyle = 'none';
-%         set(gca,'ytick',1:length(iintra), 'yticklabel',iintra);
-%         colorbar
-%         caxis([-80,0])
-% 
-        % subplot(2,2,3); plot(ts_save, phi_i,s); hold on;
-% 
-%         subplot(2,2,2);
-%         h = pcolor(ts, 1:length(icleft), phi_mat(icleft,:));
-%         set(gca,'ydir','reverse');
-%         h.LineStyle = 'none';
-%         set(gca,'ytick',1:20:length(icleft), 'yticklabel',icleft(1:20:end));
-% 
-%         subplot(2,2,4); plot(ts, phi_cleft, s); hold on;
-        
-%         figure
-%         plot(INa_all(ind_pre,:)'.*1e6)
-%         ylim([-140,20])
-%%
-
-end
-
-%% analysis
-  
-% list_higher_post = [];
-% list_higher_pre = [];
-% for i = 1:100
-%     
-%     if min(INa_pre(i,1:end)) > min(INa_post(i,1:end))
-%         list_higher_post = [list_higher_post, i];
-%     else
-%         list_higher_pre = [list_higher_pre, i];
-%     end
-% end
-% 
-% figure
-% plot3(FEM_data.partition_centers(list_higher_post, 1), ...
-%       FEM_data.partition_centers(list_higher_post, 2), ...
-%       FEM_data.partition_centers(list_higher_post, 3), '.','color','red', 'markersize',10)
-% hold on
-% plot3(FEM_data.partition_centers(list_higher_pre, 1), ...
-%       FEM_data.partition_centers(list_higher_pre, 2), ...
-%       FEM_data.partition_centers(list_higher_pre, 3), '.','color','blue', 'markersize',10)
-% 
-%   
-%   
-% figure
-% plot(ts_save,INa_pre(list_higher_post,1:end),'color',[0 0 1 0.5])
-% hold on
-% plot(ts_save,INa_post(list_higher_post,1:end),'color',[0 1 1 0.5])
-% xlim([400.8,401.6])
-% 
-% figure
-% plot(ts_save,Na_cleft(list_higher_post,1:end-1),'color',[0 0 1 0.5])
-% hold on
-% plot(ts_save,Na_cleft(list_higher_pre,1:end-1),'color',[0 1 1 0.5])
-% 
-% xlim([400.8,405.6])
 
 
     
@@ -1054,10 +866,11 @@ end
 
 if save_flag_data   
    p.loc_vec = loc_vec;
+
    %tup and trepol are already indexed
    save(save_name_data,'p','iEC','Nnodes','Ncell','Ncurrents','indices','Mdisc',...
-       'phi_mat','Iind','S_mat','I_all','ts','model','FEM_file_list',...
-       'tissue_legend','tup','trepol','cv_est','ts_save','Nint', '-v7.3');
+       'phi_mat','phi_axial_all','Iind','S_mat','I_all','ts','model','FEM_file_list',...
+       'tissue_legend','tup','trepol','ts_save','Nint', '-v7.3');
 end
 
 
