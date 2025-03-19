@@ -3,6 +3,8 @@ clear
 % model = 'LR1';
 model = 'ORd11';
 
+
+
 % tissue = '1D Mdisc cleft EpC';
 % tissue = '1D single cleft EpC';
 % tissue = '1D Mdisc cleft ID EpC';
@@ -15,8 +17,8 @@ scale_chan_loc = 1;
 D_coupling = 0.1;
 
 % time parameters
-bcl = 100;  % ms
-nbeats = 3;
+bcl = 1000;  % ms
+nbeats = 5;
 T = bcl*nbeats;
 % T = 20;
 
@@ -86,14 +88,14 @@ FEM_file_list =  {'FEMDATA_baseline.mat','FEMDATA_p60_ip60.mat'};
                                                    
 mesh_folder = "mesh_data/";
 load(mesh_folder + FEM_file_list{1}); 
-Ncell = 5; % number of cells
+Ncell = 50; % number of cells
 Njuncs = Ncell-1;
 tissue_legend = zeros(Njuncs,1) + 1; %index that chooses mesh from FEM_file_list; one less node than Ncell
-% tissue_legend(21:30) = 2;
+tissue_legend(21:30) = 2;
 
 
 % save parameters
-save_flag_data = 0;
+save_flag_data = 1;
 save_folder = "data/save/";
 save_name = "1000ms_5b_mid_60_60_cycle" + string(bcl) + "_beats" + string(nbeats) + "_D" + string(D_coupling);
 % save_name = "test_profile";
@@ -101,7 +103,7 @@ save_name_data = save_folder + save_name;
 save_name_data = strrep(save_name_data,'.',''); %remove dot to prevent file extension errors
 t_save = [300:10:400];  % ms, time points to save all state variables
 
-save_flag_restart = 0;
+save_flag_restart = 1;
 restart_folder = "data/restart/";
 save_name_restart = restart_folder + save_name;
 
