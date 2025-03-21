@@ -1,7 +1,25 @@
 clear
 
+
+walltime = getenv('EXP_WALLTIME');
+
+%cluster settings !!! THIS requests compute nodes directly, not the SLURM file !!!
+% requests N_par cores
+cluster = parcluster; % get a handle to cluster profile 
+cluster.AdditionalProperties.AccountName = 'PAS1622'; % set account name 
+cluster.AdditionalProperties.WallTime = walltime; % set wall time to 10 mintues 
+cluster.AdditionalProperties.MemPerCPU = '10gb'; 
+cluster.saveProfile; % locally save the profile
+
+
+
 cycle_vec = [200:5:300 350:50:1000];
-N_par = length(cycle_vec);
+cycle_vec = [1,2];
+N_par = length(cycle_vec); 
+
+%start cluster with no of needed sims
+parpool(cluster,N_par)
+
 %make sure to make save file depent on parfor
 parfor i_parfor = 1:N_par
 % model = 'LR1';
@@ -23,7 +41,7 @@ D_coupling = 0.1;
 % time parameters
 % bcl = 1000;  % ms
 bcl = cycle_vec(i_parfor);
-nbeats = 10;
+nbeats = 1;
 T = bcl*nbeats;
 % T = 20;
 
@@ -97,20 +115,21 @@ FEM_data = FEM_data.FEM_data;
 Ncell = 50; % number of cells
 Njuncs = Ncell-1;
 tissue_legend = zeros(Njuncs,1) + 1; %index that chooses mesh from FEM_file_list; one less node than Ncell
-tissue_legend(21:30) = 2;
+% tissue_legend(21:30) = 2; uniform tissue for CV restitution - comment out
 
 
 % save parameters; restart data will be in the same file
 save_flag_data = 1;
 
 %make sure that save_name is always dep on i_parfor
-save_folder = "data/save/";
+% save_folder = "data/save/";
+localDir = getenv('TMPDIR') + "/";
 save_name = "1000ms_5b_mid_60_60_cycle" + string(bcl) ...
             + "_beats" + string(nbeats) + "_D" + string(D_coupling);
 % save_name = "test_profile";
-save_name_data = save_folder + save_name;
+save_name_data = localDir + save_name + ".mat";
 save_name_data = strrep(save_name_data,'.',''); %remove dot to prevent file extension errors
-t_save = [300:10:400];  % ms, time points to save all state variables
+% t_save = [300:10:400];  % ms, time points to save all state variables NOT USED
 
 
 
@@ -857,6 +876,10 @@ if save_flag_data
            phi_axial_all,Iind,ts,model,FEM_file_list,tissue_legend,tup,trepol,ts_save,Nint)
 end
 
+% copy data from compute node memory to scratch
+scratch_save_name = scratchDir + string(spmdIndex)+ ".mat";
+save_data_test(save_name_data, spmdIndex)
+copyfile(save_name_data, scratch_save_name);
 
 %end parfor
 end
