@@ -7,18 +7,19 @@ walltime = getenv('EXP_WALLTIME');
 % requests N_par cores
 cluster = parcluster; % get a handle to cluster profile 
 cluster.AdditionalProperties.AccountName = 'PAS1622'; % set account name 
-cluster.AdditionalProperties.WallTime = walltime; % set wall time to 10 mintues 
-cluster.AdditionalProperties.MemPerCPU = '10gb'; 
+cluster.AdditionalProperties.WallTime = walltime; % walltime is set in starting sbatch
+cluster.AdditionalProperties.MemPerCPU = '4gb'; 
 cluster.saveProfile; % locally save the profile
 
 
 
 cycle_vec = [200:5:300 350:50:1000];
-cycle_vec = [1,2];
+% cycle_vec = [1,2];
 N_par = length(cycle_vec); 
 
 %start cluster with no of needed sims
 parpool(cluster,N_par)
+pctRunOnAll warning('off','MATLAB:mir_warning_maybe_uninitialized_temporary')
 
 %make sure to make save file depent on parfor
 parfor i_parfor = 1:N_par
@@ -126,12 +127,17 @@ save_flag_data = 1;
 localDir = getenv('TMPDIR') + "/";
 save_name = "1000ms_5b_mid_60_60_cycle" + string(bcl) ...
             + "_beats" + string(nbeats) + "_D" + string(D_coupling);
-% save_name = "test_profile";
-save_name_data = localDir + save_name + ".mat";
-save_name_data = strrep(save_name_data,'.',''); %remove dot to prevent file extension errors
+
+save_name = strrep(save_name,'.',''); %remove dot to prevent file extension errors   
+local_save_name = localDir + save_name + ".mat";     
+
+scratchDir = '/fs/scratch/PAS1622/nickmoise/ID_2025/';
+scratch_save_name = scratchDir + save_name + ".mat";     
+
+
 % t_save = [300:10:400];  % ms, time points to save all state variables NOT USED
 
-
+mat_file_save = matfile(local_save_name, 'Writable', true);
 
 disp(save_name);
 
@@ -566,9 +572,10 @@ switch tissue
 end
 
 [P1, Q1, C1] = create_coefficient_matrices(Nnodes, Rmat, Cmat, Iind, dt1);
+% Pinv1 = inv(P1); 
 [P2, Q2, C2] = create_coefficient_matrices(Nnodes, Rmat, Cmat, Iind, dt2);
-Pinv1 = inv(P1);
-Pinv2 = inv(P2);
+% Pinv2 = inv(P2); 
+
 
 [Npatches, ~] = size(Iind);
 
@@ -782,13 +789,31 @@ iintra = setdiff(1:Nnodes-1,icleft);
 % save variables
 count_save = 1; count_all = 1; 
 
-
-
-
 ti = 0;  % initialize time
 tic
 phi_axial_all = zeros(length(ind_axial),length(ts));
+
+
+
 while ti < T
+    %%%% check mem usage
+    % Get the process ID of the current MATLAB session
+    pid = feature('getpid');
+
+    % Use the ps command to get the resident set size (RSS) in kilobytes
+    [status, output] = system(sprintf('ps -o rss= -p %d', pid));
+    maxMemUsed = 0;
+    if status == 0
+        % Convert kilobytes to bytes
+        currentUsage = str2double(strtrim(output));
+        % Update maximum memory usage
+        maxMemUsed = max(maxMemUsed, currentUsage);
+    else
+        warning('Failed to retrieve memory usage information.');
+    end
+
+
+
 
     % display
     if ~mod(ti,50)
@@ -796,9 +821,9 @@ while ti < T
     end
 
     if mod(ti,bcl)<twin
-        dt = dt1; dt_samp = dt1_samp; Ns = Ns1; Q = Q1; C = C1; Pinv = Pinv1;
+        dt = dt1; dt_samp = dt1_samp; Ns = Ns1; Q = Q1; C = C1; P = P1;
     else
-        dt = dt2; dt_samp = dt2_samp; Ns = Ns2; Q = Q2; C = C2; Pinv = Pinv2;
+        dt = dt2; dt_samp = dt2_samp; Ns = Ns2; Q = Q2; C = C2; P = P2;
     end
     p.dt = dt;
 
@@ -827,7 +852,7 @@ while ti < T
 
     Hbulk = sum(reshape(Ibulk_term, length(iEC)-1,4),2);
     % update voltages
-    phi_new = Pinv*(Q*phi_i + C*Iion - H*Hbulk);
+    phi_new = P \ (Q*phi_i + C*Iion - H*Hbulk);
 
       % calculate activation/repolarization times
     [tup, trepol, beat_num] = update_tup_repol(ti, dt, Vm, Vm_old, Vthresh, ...
@@ -852,8 +877,6 @@ while ti < T
     %save last beat - for all 
     if ~mod(ti, dt_samp) && ti>(ts(end) - save_int)
         
-        mat_file_save = matfile(save_name_data, 'Writable', true);
-        
         mat_file_save.phi_save(1:length(phi_new),count_save) = phi_new;
         mat_file_save.G_save(1:length(G_new),count_save) = G_new;
         mat_file_save.S_save(1:length(Scleft),count_save) = Scleft;
@@ -868,18 +891,20 @@ while ti < T
 end
 toc
 
+disp("Max memory used = " + string(maxMemUsed/1000) + " MB")
+
 
     
 %save rest of data
 if save_flag_data   
-    save_data_final(save_name_data,loc_vec,p,iEC,Nnodes,Ncell,Ncurrents,indices,Mdisc,...
+    save_data_final(local_save_name,loc_vec,p,iEC,Nnodes,Ncell,Ncurrents,indices,Mdisc,...
            phi_axial_all,Iind,ts,model,FEM_file_list,tissue_legend,tup,trepol,ts_save,Nint)
 end
 
 % copy data from compute node memory to scratch
-scratch_save_name = scratchDir + string(spmdIndex)+ ".mat";
-save_data_test(save_name_data, spmdIndex)
-copyfile(save_name_data, scratch_save_name);
+
+
+copyfile(local_save_name, scratch_save_name);
 
 %end parfor
 end
@@ -887,14 +912,14 @@ end
 
 
 
-function save_data_final(save_name_data,loc_vec,p,iEC,Nnodes,Ncell,Ncurrents,indices,Mdisc,...
+function save_data_final(local_save_name,loc_vec,p,iEC,Nnodes,Ncell,Ncurrents,indices,Mdisc,...
        phi_axial_all,Iind,ts,model,FEM_file_list,tissue_legend,tup,trepol,ts_save,Nint)
    
    p.loc_vec = loc_vec;
 
    %tup and trepol are already indexed
-   save(save_name_data,'p','iEC','Nnodes','Ncell','Ncurrents','indices','Mdisc',...
-       'phi_axial_all','Iind','ts','model','FEM_file_list','tissue_legend','tup','trepol','ts_save','Nint','-append', '-v7.3');
+   save(local_save_name,'p','iEC','Nnodes','Ncell','Ncurrents','indices','Mdisc',...
+       'phi_axial_all','Iind','ts','model','FEM_file_list','tissue_legend','tup','trepol','ts_save','Nint','-append');
 end
 
 

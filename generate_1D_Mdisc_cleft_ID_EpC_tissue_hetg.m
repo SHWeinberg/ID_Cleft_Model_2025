@@ -83,7 +83,7 @@ iEC = [iEC Nnodes];
 
 % resistors
 Hcleft = [];
-Hcleft_all = [];
+Hcleft_all = sparse([]);
 Nres = Ncell*(Nint-1) + 2;
 
 
