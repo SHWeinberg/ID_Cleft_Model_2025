@@ -1,5 +1,9 @@
 clear
 
+cycle_vec = [200:5:300 350:50:1000];
+N_par = length(cycle_vec);
+%make sure to make save file depent on parfor
+parfor i_parfor = 1:N_par
 % model = 'LR1';
 model = 'ORd11';
 
@@ -17,8 +21,9 @@ scale_chan_loc = 1;
 D_coupling = 0.1;
 
 % time parameters
-bcl = 1000;  % ms
-nbeats = 5;
+% bcl = 1000;  % ms
+bcl = cycle_vec(i_parfor);
+nbeats = 10;
 T = bcl*nbeats;
 % T = 20;
 
@@ -87,25 +92,27 @@ locUniform = 2*Ad/Atot;
 FEM_file_list =  {'FEMDATA_baseline.mat','FEMDATA_p60_ip60.mat'};
                                                    
 mesh_folder = "mesh_data/";
-load(mesh_folder + FEM_file_list{1}); 
+FEM_data = load(mesh_folder + FEM_file_list{1}); 
+FEM_data = FEM_data.FEM_data;
 Ncell = 50; % number of cells
 Njuncs = Ncell-1;
 tissue_legend = zeros(Njuncs,1) + 1; %index that chooses mesh from FEM_file_list; one less node than Ncell
 tissue_legend(21:30) = 2;
 
 
-% save parameters
+% save parameters; restart data will be in the same file
 save_flag_data = 1;
+
+%make sure that save_name is always dep on i_parfor
 save_folder = "data/save/";
-save_name = "1000ms_5b_mid_60_60_cycle" + string(bcl) + "_beats" + string(nbeats) + "_D" + string(D_coupling);
+save_name = "1000ms_5b_mid_60_60_cycle" + string(bcl) ...
+            + "_beats" + string(nbeats) + "_D" + string(D_coupling);
 % save_name = "test_profile";
 save_name_data = save_folder + save_name;
 save_name_data = strrep(save_name_data,'.',''); %remove dot to prevent file extension errors
 t_save = [300:10:400];  % ms, time points to save all state variables
 
-save_flag_restart = 1;
-restart_folder = "data/restart/";
-save_name_restart = restart_folder + save_name;
+
 
 disp(save_name);
 
@@ -426,8 +433,8 @@ switch tissue
 
         % IDarea_vec = FEM_data.partition_surface;  % ID membrane patch surface area, um^2
 
-        load(mesh_folder + FEM_file_list{tissue_legend(1)}); 
-
+        FEM_data = load(mesh_folder + FEM_file_list{tissue_legend(1)}); 
+        FEM_data = FEM_data.FEM_data;
         Mdisc = length(FEM_data.bulk_adjacency_matrix);
 
         rho_ie = 1;  % ratio of intracellular (ID)-to-extracellular (cleft) resistivity
@@ -445,7 +452,8 @@ switch tissue
         Vol_cleft_vec = [];
 
         for i = 1:Njuncs
-            load(mesh_folder + FEM_file_list{tissue_legend(i)}); 
+            FEM_data = load(mesh_folder + FEM_file_list{tissue_legend(i)}); 
+            FEM_data = FEM_data.FEM_data;
             Gc_array(:,:,i) = f_disc*(FEM_data.cleft_adjacency_matrix)/p_ext;  % mS, Mdisc x Mdisc
             Gb_mat(:,i) = f_bulk*FEM_data.bulk_adjacency_matrix'/p_ext;  % mS, 1 x Mdisc
             IDarea_vec(:,2*i-1) = FEM_data.partition_surface;  % ID membrane patch surface area, um^2
@@ -455,7 +463,7 @@ switch tissue
 %             chan_area_norm_mat(:,2*i-1) = FEM_data.chan_area_norm;
 %             chan_area_norm_mat(:,2*i) = FEM_data.chan_area_norm;
         end
-
+        gj_norm_list = zeros(Mdisc, Njuncs);
         switch GJ_dist
             case "single"
 %                 % one GJ plaque closest to center node 
@@ -477,15 +485,18 @@ switch tissue
 %                 gj_norm = ggap_array/sum(ggap_array);
 
             case "mesh"
+                
                 for i = 1:Njuncs
-                    load(mesh_folder + FEM_file_list{tissue_legend(i)}); 
+                    FEM_data = load(mesh_folder + FEM_file_list{tissue_legend(i)}); 
+                    FEM_data = FEM_data.FEM_data;
                     gj_norm_list(:,i) = FEM_data.gj_area_norm;
 
                 end
                 
            case "mesh_scaled"  %chan - chan_mean +1)^scale - 1 + chan_mean
                 for i = 1:Njuncs
-                    load(mesh_folder + FEM_file_list{tissue_legend(i)}); 
+                    FEM_data = load(mesh_folder + FEM_file_list{tissue_legend(i)}); 
+                    FEM_data = FEM_data.FEM_data;
                     gj_norm = FEM_data.gj_area_norm;
                     gj_norm_scale = gj_norm + (1-mean(gj_norm));   
                     gj_new = (gj_norm_scale.^scale_gj_loc)./(sum(gj_norm_scale.^scale_gj_loc));
@@ -499,7 +510,8 @@ switch tissue
             case 'chan'
                 loc_mat = zeros(Mdisc, Ncurrents, 2*Njuncs);
                 for i = 1:Njuncs
-                    load(mesh_folder + FEM_file_list{tissue_legend(i)});
+                    FEM_data = load(mesh_folder + FEM_file_list{tissue_legend(i)});
+                    FEM_data = FEM_data.FEM_data;
                     tmp = FEM_data.partition_surface; tmp = tmp/sum(tmp);            
                     
                     %pre junc - def symmetrical
@@ -518,7 +530,8 @@ switch tissue
                 tmp = IDarea_vec; tmp = tmp/sum(tmp);
                 loc_mat = tmp*loc_vec; % localization proportional to area, Mdisc x Ncurrents matrix
                 for i = 1:Njuncs
-                    load(mesh_folder + FEM_file_list{tissue_legend(i)});
+                    FEM_data = load(mesh_folder + FEM_file_list{tissue_legend(i)});
+                    FEM_data = FEM_data.FEM_data;
                     tmp = FEM_data.partition_surface; tmp = tmp/sum(tmp);            
                     %pre junc - def symmetrical
                     loc_mat(:,:,2*i-1) = loc_vec.*tmp;
@@ -617,15 +630,10 @@ switch model
     case 'Court98'
         % order is determined by code in fun_name
         % INa IK1 Ito IKur IKr IKs IBNa IBK IBCa INaK ICaP INaCa ICaL
-
-
-
         %
         %         loc_vec(p.iito) = locUniform;
         %         loc_vec(p.iikr) = locUniform;
         %         loc_vec(p.iiks) = locUniform;
-        %
-
         % ionic model-specific parameters
         ionic_fun_name = 'fun_courtemachne98';
 
@@ -655,18 +663,6 @@ p.Ctot = Atot*Cm;   % total cell capacitance, uF
 Ncleft_comp = length(iEC)-1;
 
 % initalize / load initial conditions
-phi_mat = nan(Nnodes, Nts);
-G_mat = nan(Nstate*Npatches, Nts);
-S_mat = nan(4*Nnodes, Nts); % Na, K, Ca, A
-I_all = nan(Npatches*Ncurrents, Nts);
-
-if save_flag_restart
-   phi_save = nan(Nnodes, length(t_save));
-   G_save = nan(Nstate*Npatches, length(t_save));
-   S_save = nan(4*Nnodes, length(t_save));
-   I_save = nan(Npatches*Ncurrents, length(t_save));
-   count_save = 1;
-end
 
 if ~load_flag
     phi0 = x0(1)*ones(Nnodes,1); % intracellular nodes
@@ -677,32 +673,31 @@ if ~load_flag
     Scleft(Nnodes+1:2*Nnodes) = K_o; zvec(Nnodes+1:2*Nnodes) = 1;
     Scleft(2*Nnodes+1:3*Nnodes) = Ca_o; zvec(2*Nnodes+1:3*Nnodes) = 2;
     Scleft(3*Nnodes+1:4*Nnodes) = A_o; zvec(3*Nnodes+1:4*Nnodes) = -1;
-    S_mat(:,1) = Scleft;
+    
 
     g0 = nan(Nstate*Npatches,1);
     for i = 1:Nstate
         g0(Npatches*(i-1)+1:i*Npatches) = x0(i+1);
     end
 else
-    load(load_name);
-    switch load_case
-        case 'final'
-            phi0 = final.phi;
-            g0 = final.G;
-            Scleft = final.S;
-            ts = ts + final.t;
-        case 'restart'
-           ts = ts + load_restart_t;
-           [~,i] = min(abs(restart.t - load_restartq_t));
-           phi0 = restart.phi(:,i);
-           g0 = restart.G(:,i);
-           Scleft = restart.S(:,i);
-    end
+%     load_data = load(load_name);
+%     switch load_case
+%         case 'final'
+%             phi0 = final.phi;
+%             g0 = final.G;
+%             Scleft = final.S;
+%             ts = ts + final.t;
+%         case 'restart'
+%            ts = ts + load_restart_t;
+%            [~,i] = min(abs(restart.t - load_restartq_t));
+%            phi0 = restart.phi(:,i);
+%            g0 = restart.G(:,i);
+%            Scleft = restart.S(:,i);
+%     end
 
 end
 
-phi_mat(:,1) = phi0;
-G_mat(:,1) = g0;
+
 
 % constants
 F = 96.5;                   % Faraday constant, coulombs/mmol
@@ -742,13 +737,17 @@ H = sparse(H);
 ionic_fun = str2func(['@(t,x,p,S) ',ionic_fun_name,'(t,x,p,S)']);
 p.f_I = f_I;
 
-count = 1; count_all = 1; 
-phi_i = phi_mat(:,1); G_i = G_mat(:,1);
+
+
+
+
+phi_i = phi0; G_i = g0;
+
 % collect Vm
 Vm = phi_i(Iind(:,1)) - phi_i(Iind(:,2));
 Sp = [Scleft(Iind(:,2)); Scleft(Iind(:,2)+Nnodes); Scleft(Iind(:,2)+2*Nnodes)];
 [~, ~, ~, ~, I_new] = ionic_fun(0, [Vm; G_i], p, Sp);
-I_all(:,1) = I_new;
+
 
 beat_num = ones(Npatches,1);
 tup = nan(Npatches,1);
@@ -761,8 +760,15 @@ iintra = setdiff(1:Nnodes-1,icleft);
 [~,ind] = sort(Iind(:,1));
 [ind_axial, ~] = ind2sub([length(ind) length(indices.ind_axial)], find(ind == indices.ind_axial));
 
+% save variables
+count_save = 1; count_all = 1; 
+
+
+
+
 ti = 0;  % initialize time
 tic
+phi_axial_all = zeros(length(ind_axial),length(ts));
 while ti < T
 
     % display
@@ -815,74 +821,57 @@ while ti < T
         disp("complex Vm")
         break
     end
-
-    %save last beat - for all 
-    if ~mod(ti, dt_samp) && ti>(ts(end) - save_int)
-        phi_mat(:,count+1) = phi_new;
-        G_mat(:,count+1) = G_new;
-        S_mat(:,count+1) = Scleft;
-        I_all(:,count) = I_new;
-        count = count + 1;
-    end
-
-    %save whole sim - just phi_axial
+    
+    %save whole sim data- just phi_axial
     if ~mod(ti, dt_samp) 
         phi_i = phi_new(iintra);
         phi_axial_all(:,count_all) = phi_i(ind_axial); 
         count_all = count_all + 1;
     end
+    
+
+    %save last beat - for all 
+    if ~mod(ti, dt_samp) && ti>(ts(end) - save_int)
+        
+        mat_file_save = matfile(save_name_data, 'Writable', true);
+        
+        mat_file_save.phi_save(1:length(phi_new),count_save) = phi_new;
+        mat_file_save.G_save(1:length(G_new),count_save) = G_new;
+        mat_file_save.S_save(1:length(Scleft),count_save) = Scleft;
+        mat_file_save.I_save(1:length(I_new),count_save) = I_new;
+        count_save = count_save + 1;
+        
+    end
+
     phi_i = phi_new;
     G_i = G_new;
 
-    if save_flag_restart
-       if ismember(ti, t_save)
-          phi_save(:,count_save) = phi_new;
-          G_save(:,count_save) = G_new;
-          S_save(:,count_save) = Scleft;
-          I_save(:,count_save) = I_new;
-          count_save = count_save + 1;
-       end
-    end
 end
 toc
 
 
     
-%% saving
-if save_flag_restart
-   % add all variables and/or parameters to save,
-   % For restarting (continuing):
-   % "final" will include final states
-   % "restart" will include all states for times in "t_save"
-   
-   final.phi = phi_new;
-   final.G = G_new;
-   final.S = Scleft;
-   final.I = I_new;
-   final.t = ts(end);
-
-   restart.t = t_save;
-   restart.phi = phi_save;
-   restart.G = G_save;
-   restart.S = S_save;
-   restart.I = I_save;
-
-   save(save_name_restart,'restart', 'final', '-v7.3');
-
+%save rest of data
+if save_flag_data   
+    save_data_final(save_name_data,loc_vec,p,iEC,Nnodes,Ncell,Ncurrents,indices,Mdisc,...
+           phi_axial_all,Iind,ts,model,FEM_file_list,tissue_legend,tup,trepol,ts_save,Nint)
 end
 
-if save_flag_data   
+
+%end parfor
+end
+
+
+
+
+function save_data_final(save_name_data,loc_vec,p,iEC,Nnodes,Ncell,Ncurrents,indices,Mdisc,...
+       phi_axial_all,Iind,ts,model,FEM_file_list,tissue_legend,tup,trepol,ts_save,Nint)
+   
    p.loc_vec = loc_vec;
 
    %tup and trepol are already indexed
    save(save_name_data,'p','iEC','Nnodes','Ncell','Ncurrents','indices','Mdisc',...
-       'phi_mat','phi_axial_all','Iind','S_mat','I_all','ts','model','FEM_file_list',...
-       'tissue_legend','tup','trepol','ts_save','Nint', '-v7.3');
+       'phi_axial_all','Iind','ts','model','FEM_file_list','tissue_legend','tup','trepol','ts_save','Nint','-append', '-v7.3');
 end
-
-
-
-
-
 
 
