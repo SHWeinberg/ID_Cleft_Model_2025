@@ -37,12 +37,12 @@ ID_dist = 'chan';
 GJ_dist = 'mesh';
 scale_gj_loc = 1;
 scale_chan_loc = 1;
-D_coupling = 0.1;
+D_coupling = 1;
 
 % time parameters
 % bcl = 1000;  % ms
 bcl = cycle_vec(i_parfor);
-nbeats = 1;
+nbeats = 10;
 T = bcl*nbeats;
 % T = 20;
 
@@ -125,7 +125,7 @@ save_flag_data = 1;
 %make sure that save_name is always dep on i_parfor
 % save_folder = "data/save/";
 localDir = getenv('TMPDIR') + "/";
-save_name = "1000ms_5b_mid_60_60_cycle" + string(bcl) ...
+save_name = "1000ms_5b_mid_base_cycle" + string(bcl) ...
             + "_beats" + string(nbeats) + "_D" + string(D_coupling);
 
 save_name = strrep(save_name,'.',''); %remove dot to prevent file extension errors   
@@ -816,8 +816,8 @@ while ti < T
 
 
     % display
-    if ~mod(ti,50)
-        disp(ti);
+    if ~mod(ti,500)
+        disp(save_name + " progress: " + string(ti/T));
     end
 
     if mod(ti,bcl)<twin
