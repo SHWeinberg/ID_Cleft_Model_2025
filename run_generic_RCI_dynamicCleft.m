@@ -906,7 +906,8 @@ disp("Max memory used = " + string(maxMemUsed/1000) + " MB")
     
 %save rest of data
 if save_flag_data   
-    save_data_final(local_save_name,loc_vec,p,iEC,Nnodes,Ncell,Ncurrents,indices,Mdisc,...
+    p.loc_vec = loc_vec;
+    save_data_final(local_save_name,bcl,p,iEC,Nnodes,Ncell,Ncurrents,indices,Mdisc,...
            phi_axial_all,Iind,ts,model,FEM_file_list,tissue_legend,tup,trepol,ts_save,Nint)
 end
 
@@ -921,13 +922,10 @@ end
 
 
 
-function save_data_final(local_save_name,loc_vec,p,iEC,Nnodes,Ncell,Ncurrents,indices,Mdisc,...
+function save_data_final(local_save_name,bcl,p,iEC,Nnodes,Ncell,Ncurrents,indices,Mdisc,...
        phi_axial_all,Iind,ts,model,FEM_file_list,tissue_legend,tup,trepol,ts_save,Nint)
-   
-   p.loc_vec = loc_vec;
 
-   %tup and trepol are already indexed
-   save(local_save_name,'p','iEC','Nnodes','Ncell','Ncurrents','indices','Mdisc',...
+   save(local_save_name,'bcl','p','iEC','Nnodes','Ncell','Ncurrents','indices','Mdisc',...
        'phi_axial_all','Iind','ts','model','FEM_file_list','tissue_legend','tup','trepol','ts_save','Nint','-append');
 end
 
