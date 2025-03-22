@@ -125,8 +125,17 @@ save_flag_data = 1;
 %make sure that save_name is always dep on i_parfor
 % save_folder = "data/save/";
 localDir = getenv('TMPDIR') + "/";
-save_name = "1000ms_5b_mid_base_cycle" + string(bcl) ...
-            + "_beats" + string(nbeats) + "_D" + string(D_coupling);
+
+save_name = "cycle" + string(bcl) + "_beats" + string(nbeats) + "_D" + string(D_coupling);
+
+% add further mesh names as needed if we have>2 diff IDs 
+if any(tissue_legend==2) 
+    save_name = "msh2_" + FEM_file_list{2}(9:end-4) +"_" + save_name;
+end
+
+if any(tissue_legend==1) 
+    save_name = "msh1_" + FEM_file_list{1}(9:end-4) +"_" + save_name;
+end
 
 save_name = strrep(save_name,'.',''); %remove dot to prevent file extension errors   
 local_save_name = localDir + save_name + ".mat";     
