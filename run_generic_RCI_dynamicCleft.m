@@ -11,11 +11,14 @@ cluster.AdditionalProperties.WallTime = walltime; % walltime is set in starting 
 cluster.AdditionalProperties.MemPerCPU = '4gb'; 
 cluster.saveProfile; % locally save the profile
 
-cycle_vec = [200:5:300 350:50:1000];
-% cycle_vec = [1,2];
-N_par = length(cycle_vec); 
+% cycle_vec = [200:5:300 350:50:1000];
+scale_gj_loc_vec = [8 4 2 1 1/2 1/4 1/8];
+scale_chan_loc_vec = [8 4 2 1 1/2 1/4 1/8];
+gj_chan_vec = combvec(scale_gj_loc_vec, scale_chan_loc_vec);
+
 
 % %start cluster with no of needed sims - comment out to run locally
+N_par = length(gj_chan_vec); 
 parpool(cluster,N_par)
 pctRunOnAll warning('off','MATLAB:mir_warning_maybe_uninitialized_temporary')
 
@@ -79,20 +82,26 @@ tissue_legend = zeros(Njuncs,1) + 1; %index that chooses mesh from FEM_file_list
 % tissue_legend(21:30) = 2; uniform tissue for CV restitution - comment out
 
 %can make these depend on tissue leg
-scale_gj_loc = 1;
-scale_chan_loc = 1;
+% scale_gj_loc = 1;
+% scale_chan_loc = 1;
+
+scale_gj_loc = gj_chan_vec(1,i_parfor);
+scale_chan_loc = gj_chan_vec(2,i_parfor);
+
+
+gj_chan_vec
 D = 1;
 
 %%%%%% TIME
-% bcl = 1000;  % ms
-bcl = cycle_vec(i_parfor);
+bcl = 1000;  % ms
+% bcl = cycle_vec(i_parfor);
 nbeats = 10;
 T = bcl*nbeats;
 % T = 20;
 
 % time step (use different time step between stim and twin)
 dt_factor = 1;
-if scale_chan_loc>=500 || scale_gj_loc>=500
+if scale_chan_loc>=5 || scale_gj_loc>=5
     dt_factor = 5;
 end
 
@@ -124,7 +133,8 @@ save_flag_data = 1;
 % save_folder = "data/save/";
 localDir = getenv('TMPDIR') + "/";
 
-save_name = "cycle" + string(bcl) + "_beats" + string(nbeats) + "_D" + string(D);
+save_name = "cycle" + string(bcl) + "_beats" + string(nbeats) + "_D" + string(D) ...
+          + "_gj_loc" + string(scale_gj_loc) + "chan_loc" + string(scale_chan_loc);
 
 % add further mesh names as needed if we have>2 diff IDs 
 if any(tissue_legend==2) 
@@ -138,7 +148,8 @@ end
 save_name = strrep(save_name,'.',''); %remove dot to prevent file extension errors   
 local_save_name = localDir + save_name + ".mat";     
 
-scratchDir = '/fs/scratch/PAS1622/nickmoise/ID_2025/';
+scratchDir_run = "";
+scratchDir = "/fs/scratch/PAS1622/nickmoise/ID_2025/" + scratchDir_run + "/";
 scratch_save_name = scratchDir + save_name + ".mat";     
 
 mat_file_save = matfile(local_save_name, 'Writable', true);
