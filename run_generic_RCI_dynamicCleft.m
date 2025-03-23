@@ -21,8 +21,8 @@ cluster.AdditionalProperties.AccountName = 'PAS1622'; % set account name
 cluster.AdditionalProperties.WallTime = walltime; % walltime is set in starting sbatch
 cluster.AdditionalProperties.MemPerCPU = '4gb'; 
 cluster.saveProfile; % locally save the profile
-parpool(cluster,N_par)
-pctRunOnAll warning('off','MATLAB:mir_warning_maybe_uninitialized_temporary')
+parpool(cluster, N_par)
+pctRunOnAll warning('off', 'MATLAB:mir_warning_maybe_uninitialized_temporary')
 
 %%%% PARFOR LOOP - switch to for for one local run
 %make sure to make save file name depend on parfor
@@ -72,22 +72,22 @@ RTF=(R*Temp/F);                % mV
 
 
 %%%%%% CELL/TISSUE GEOM
-FEM_file_list =  {'FEMDATA_baseline.mat','FEMDATA_p60_ip60.mat'};
+FEM_file_list =  {'FEMDATA_baseline.mat', 'FEMDATA_p60_ip60.mat'};
                                                    
 mesh_folder = "mesh_data/";
 FEM_data = load(mesh_folder + FEM_file_list{1}); 
 FEM_data = FEM_data.FEM_data;
 Ncell = 50; % number of cells
 Njuncs = Ncell-1;
-tissue_legend = zeros(Njuncs,1) + 1; %index that chooses mesh from FEM_file_list; one less node than Ncell
+tissue_legend = zeros(Njuncs, 1) + 1; %index that chooses mesh from FEM_file_list; one less node than Ncell
 % tissue_legend(21:30) = 2; uniform tissue for CV restitution - comment out
 
 %can make these depend on tissue leg
 % scale_gj_loc = 1;
 % scale_chan_loc = 1;
 
-scale_gj_loc = gj_chan_vec(1,i_parfor);
-scale_chan_loc = gj_chan_vec(2,i_parfor);
+scale_gj_loc = gj_chan_vec(1, i_parfor);
+scale_chan_loc = gj_chan_vec(2, i_parfor);
 
 D = 1;
 
@@ -144,14 +144,15 @@ if any(tissue_legend==1)
     save_name = "msh1_" + FEM_file_list{1}(9:end-4) +"_" + save_name;
 end
 
-save_name = strrep(save_name,'.',''); %remove dot to prevent file extension errors   
+save_name = strrep(save_name, '.', ''); %remove dot to prevent file extension errors   
 local_save_name = localDir + save_name + ".mat";     
 
-scratchDir_run = "gj_chan_loc_test";
+scratchDir_run = "gj_chan_loc_base_D1";
 scratchDir = "/fs/scratch/PAS1622/nickmoise/ID_2025/" + scratchDir_run + "/";
-if ~isempty(scratchDir_run)
-    mkdir(scratchDir);
-end
+
+if ~exist(scratchDir, 'dir')
+    mkdir(scratchDir)
+ end
 
 scratch_save_name = scratchDir + save_name + ".mat";     
 
@@ -200,7 +201,7 @@ switch model
         % order is determined by code in fun_name
         % INa, Isi, IK, IK1, IKp, Ib
         Ncurrents = 6;
-        scaleI = ones(1,Ncurrents);
+        scaleI = ones(1, Ncurrents);
 
         % ionic model-specific parameters
         ionic_fun_name = 'fun_LR1';
@@ -311,7 +312,7 @@ switch tissue
         Gc_array = 0;
         [Rmat, Cmat, Iind, Nnodes, f_I, iEC, Vol_cleft, cleft, indices] = ...
             generate_1D_single_cleft_EpC(r, L, Ncell, Nint, D, w, loc_vec, scaleI, fVol);
-        Vol_cleft_vec = Vol_cleft*ones(4*(length(iEC)-1),1);
+        Vol_cleft_vec = Vol_cleft*ones(4*(length(iEC)-1), 1);
 
     case '1D Mdisc cleft EpC'
         Gc_array = f_disc*(FEM_data.cleft_adjacency_matrix)/p_ext;  % mS, Mdisc x Mdisc
@@ -325,16 +326,16 @@ switch tissue
             case 'chan'
                 loc_mat = zeros(Mdisc, Ncurrents);
                 tmp = IDarea_vec; tmp = tmp/sum(tmp);            
-                loc_mat(:,:) = loc_vec.*tmp;
-                loc_mat(:,p.iina) = loc_vec(p.iina).*FEM_data.Na_area_norm;
-                loc_mat(:,p.iinak) = loc_vec(p.iinak).*FEM_data.NKA_area_norm;
-                loc_mat(:,p.iik1) = loc_vec(p.iik1).*FEM_data.Kir21_area_norm;
+                loc_mat(:, :) = loc_vec.*tmp;
+                loc_mat(:, p.iina) = loc_vec(p.iina).*FEM_data.Na_area_norm;
+                loc_mat(:, p.iinak) = loc_vec(p.iinak).*FEM_data.NKA_area_norm;
+                loc_mat(:, p.iik1) = loc_vec(p.iik1).*FEM_data.Kir21_area_norm;
             case 'area'
                 tmp = IDarea_vec; tmp = tmp/sum(tmp);
                 loc_mat = tmp*loc_vec; % localization proportional to area, Mdisc x Ncurrents matrix
             case 'GJ_single'
                 % one GJ plaque closest to center node 
-                GJ_area = 100; GJ_adjacent = {[ind_conn find(Gc_array(ind_conn,:))]};
+                GJ_area = 100; GJ_adjacent = {[ind_conn find(Gc_array(ind_conn, :))]};
                 ggap_array = zeros(Mdisc, 1); % distribute to nodes
                 for i = 1:length(GJ_area)
                     ind = GJ_adjacent{i};
@@ -344,53 +345,53 @@ switch tissue
                 
                 loc_mat = zeros(Mdisc, Ncurrents);
                 tmp = IDarea_vec; tmp = tmp/sum(tmp);   
-                loc_mat(:,:) = loc_vec.*tmp;
-                loc_mat(:,p.iina) = loc_vec(p.iina).*gj_norm_chan;
-                loc_mat(:,p.iinak) = loc_vec(p.iinak).*gj_norm_chan;
-                loc_mat(:,p.iik1) = loc_vec(p.iik1).*gj_norm_chan;
+                loc_mat(:, :) = loc_vec.*tmp;
+                loc_mat(:, p.iina) = loc_vec(p.iina).*gj_norm_chan;
+                loc_mat(:, p.iinak) = loc_vec(p.iinak).*gj_norm_chan;
+                loc_mat(:, p.iik1) = loc_vec(p.iik1).*gj_norm_chan;
             case 'chan_scaled'
                 loc_mat = zeros(Mdisc, Ncurrents);
                 tmp = IDarea_vec; tmp = tmp/sum(tmp);            
-                loc_mat(:,:) = loc_vec.*tmp;
+                loc_mat(:, :) = loc_vec.*tmp;
 
                 Na_chan_norm = FEM_data.Na_area_norm;
                 chan_norm_scale = Na_chan_norm + (1-mean(Na_chan_norm));   
                 chan_new = (chan_norm_scale.^scale_chan_loc)./(sum(chan_norm_scale.^scale_chan_loc));
                 Na_chan_new = chan_new;                       
-                loc_mat(:,p.iina) = loc_vec(p.iina).*Na_chan_new;
+                loc_mat(:, p.iina) = loc_vec(p.iina).*Na_chan_new;
 
                 NKA_chan_norm = FEM_data.NKA_area_norm;
                 chan_norm_scale = NKA_chan_norm + (1-mean(NKA_chan_norm));   
                 chan_new = (chan_norm_scale.^scale_chan_loc)./(sum(chan_norm_scale.^scale_chan_loc));
                 NKA_chan_new = chan_new;      
-                loc_mat(:,p.iinak) = loc_vec(p.iinak).*NKA_chan_new;
+                loc_mat(:, p.iinak) = loc_vec(p.iinak).*NKA_chan_new;
 
                 Kir21_chan_norm = FEM_data.Kir21_area_norm;
                 chan_norm_scale = Kir21_chan_norm + (1-mean(Kir21_chan_norm));   
                 chan_new = (chan_norm_scale.^scale_chan_loc)./(sum(chan_norm_scale.^scale_chan_loc));
                 Kir21_chan_new = chan_new;  
-                loc_mat(:,p.iik1) = loc_vec(p.iik1).*Kir21_chan_new; 
+                loc_mat(:, p.iik1) = loc_vec(p.iik1).*Kir21_chan_new; 
 
             case 'chan_scaled_gj_coloc'
                 loc_mat = zeros(Mdisc, Ncurrents);
                 tmp = IDarea_vec; tmp = tmp/sum(tmp);            
-                loc_mat(:,:) = loc_vec.*tmp;
+                loc_mat(:, :) = loc_vec.*tmp;
 
                 gj_norm_chan = FEM_data.gj_area_norm;
                 gj_norm_scale = gj_norm_chan + (1-mean(gj_norm_chan));   
                 gj_new = (gj_norm_scale.^scale_chan_loc)./(sum(gj_norm_scale.^scale_chan_loc));
                 gj_norm_chan = gj_new;   
 
-                loc_mat(:,p.iina) = loc_vec(p.iina).*gj_norm_chan;
-                loc_mat(:,p.iinak) = loc_vec(p.iinak).*gj_norm_chan;
-                loc_mat(:,p.iik1) = loc_vec(p.iik1).*gj_norm_chan;
+                loc_mat(:, p.iina) = loc_vec(p.iina).*gj_norm_chan;
+                loc_mat(:, p.iinak) = loc_vec(p.iinak).*gj_norm_chan;
+                loc_mat(:, p.iik1) = loc_vec(p.iik1).*gj_norm_chan;
         end
 
         [Rmat, Cmat, Iind, Nnodes, f_I, iEC, cleft, indices] = ...
             generate_1D_Mdisc_cleft_EpC(r, L, Ncell, Nint, Mdisc, D, Gb_mat, ...
-            Gc_array, IDarea_vec, loc_mat, scaleI,ggap);
+            Gc_array, IDarea_vec, loc_mat, scaleI, ggap);
 
-        Vol_cleft_vec =  fVol*repmat(FEM_data.partition_volume,4*(Ncell-1),1); % um^3
+        Vol_cleft_vec =  fVol*repmat(FEM_data.partition_volume, 4*(Ncell-1), 1); % um^3
 
     case '1D Mdisc cleft ID EpC'
         Gc_array = f_disc*(FEM_data.cleft_adjacency_matrix)/p_ext;  % mS, Mdisc x Mdisc
@@ -399,12 +400,12 @@ switch tissue
         Mdisc = length(Gb_mat);
 
         % GJ area / connection parameters
-        [~,ind_conn] = min(sum((FEM_data.partition_centers-mean(FEM_data.partition_centers)).^2,2));
+        [~, ind_conn] = min(sum((FEM_data.partition_centers-mean(FEM_data.partition_centers)).^2, 2));
 
         switch GJ_dist
             case "single"
                 % one GJ plaque closest to center node 
-                GJ_area = 100; GJ_adjacent = {[ind_conn find(Gc_array(ind_conn,:))]};
+                GJ_area = 100; GJ_adjacent = {[ind_conn find(Gc_array(ind_conn, :))]};
                 ggap_array = zeros(Mdisc, 1); % distribute to nodes
                 for i = 1:length(GJ_area)
                     ind = GJ_adjacent{i};
@@ -413,7 +414,7 @@ switch tissue
                 gj_norm = ggap_array/sum(ggap_array);
             case "equal"
                % equal distribution
-               GJ_area = ones(1,Mdisc); GJ_adjacent = num2cell(1:Mdisc);
+               GJ_area = ones(1, Mdisc); GJ_adjacent = num2cell(1:Mdisc);
                ggap_array = zeros(Mdisc, 1); % distribute to nodes
                 for i = 1:length(GJ_area)
                     ind = GJ_adjacent{i};
@@ -435,16 +436,16 @@ switch tissue
             case 'chan'
                 loc_mat = zeros(Mdisc, Ncurrents);
                 tmp = IDarea_vec; tmp = tmp/sum(tmp);            
-                loc_mat(:,:) = loc_vec.*tmp;
-                loc_mat(:,p.iina) = loc_vec(p.iina).*FEM_data.Na_area_norm;
-                loc_mat(:,p.iinak) = loc_vec(p.iinak).*FEM_data.NKA_area_norm;
-                loc_mat(:,p.iik1) = loc_vec(p.iik1).*FEM_data.Kir21_area_norm;
+                loc_mat(:, :) = loc_vec.*tmp;
+                loc_mat(:, p.iina) = loc_vec(p.iina).*FEM_data.Na_area_norm;
+                loc_mat(:, p.iinak) = loc_vec(p.iinak).*FEM_data.NKA_area_norm;
+                loc_mat(:, p.iik1) = loc_vec(p.iik1).*FEM_data.Kir21_area_norm;
             case 'area'
                 tmp = IDarea_vec; tmp = tmp/sum(tmp);
                 loc_mat = tmp*loc_vec; % localization proportional to area, Mdisc x Ncurrents matrix
             case 'GJ_single'
                 % one GJ plaque closest to center node 
-                GJ_area = 100; GJ_adjacent = {[ind_conn find(Gc_array(ind_conn,:))]};
+                GJ_area = 100; GJ_adjacent = {[ind_conn find(Gc_array(ind_conn, :))]};
                 ggap_array = zeros(Mdisc, 1); % distribute to nodes
                 for i = 1:length(GJ_area)
                     ind = GJ_adjacent{i};
@@ -454,53 +455,53 @@ switch tissue
                 
                 loc_mat = zeros(Mdisc, Ncurrents);
                 tmp = IDarea_vec; tmp = tmp/sum(tmp);   
-                loc_mat(:,:) = loc_vec.*tmp;
-                loc_mat(:,p.iina) = loc_vec(p.iina).*gj_norm_chan;
-                loc_mat(:,p.iinak) = loc_vec(p.iinak).*gj_norm_chan;
-                loc_mat(:,p.iik1) = loc_vec(p.iik1).*gj_norm_chan;
+                loc_mat(:, :) = loc_vec.*tmp;
+                loc_mat(:, p.iina) = loc_vec(p.iina).*gj_norm_chan;
+                loc_mat(:, p.iinak) = loc_vec(p.iinak).*gj_norm_chan;
+                loc_mat(:, p.iik1) = loc_vec(p.iik1).*gj_norm_chan;
             case 'chan_scaled'
                 loc_mat = zeros(Mdisc, Ncurrents);
                 tmp = IDarea_vec; tmp = tmp/sum(tmp);            
-                loc_mat(:,:) = loc_vec.*tmp;
+                loc_mat(:, :) = loc_vec.*tmp;
 
                 Na_chan_norm = FEM_data.Na_area_norm;
                 chan_norm_scale = Na_chan_norm + (1-mean(Na_chan_norm));   
                 chan_new = (chan_norm_scale.^scale_chan_loc)./(sum(chan_norm_scale.^scale_chan_loc));
                 Na_chan_new = chan_new;                       
-                loc_mat(:,p.iina) = loc_vec(p.iina).*Na_chan_new;
+                loc_mat(:, p.iina) = loc_vec(p.iina).*Na_chan_new;
 
                 NKA_chan_norm = FEM_data.NKA_area_norm;
                 chan_norm_scale = NKA_chan_norm + (1-mean(NKA_chan_norm));   
                 chan_new = (chan_norm_scale.^scale_chan_loc)./(sum(chan_norm_scale.^scale_chan_loc));
                 NKA_chan_new = chan_new;      
-                loc_mat(:,p.iinak) = loc_vec(p.iinak).*NKA_chan_new;
+                loc_mat(:, p.iinak) = loc_vec(p.iinak).*NKA_chan_new;
 
                 Kir21_chan_norm = FEM_data.Kir21_area_norm;
                 chan_norm_scale = Kir21_chan_norm + (1-mean(Kir21_chan_norm));   
                 chan_new = (chan_norm_scale.^scale_chan_loc)./(sum(chan_norm_scale.^scale_chan_loc));
                 Kir21_chan_new = chan_new;  
-                loc_mat(:,p.iik1) = loc_vec(p.iik1).*Kir21_chan_new; 
+                loc_mat(:, p.iik1) = loc_vec(p.iik1).*Kir21_chan_new; 
 
             case 'chan_scaled_gj_coloc'
                 loc_mat = zeros(Mdisc, Ncurrents);
                 tmp = IDarea_vec; tmp = tmp/sum(tmp);            
-                loc_mat(:,:) = loc_vec.*tmp;
+                loc_mat(:, :) = loc_vec.*tmp;
 
                 gj_norm_chan = FEM_data.gj_area_norm;
                 gj_norm_scale = gj_norm_chan + (1-mean(gj_norm_chan));   
                 gj_new = (gj_norm_scale.^scale_chan_loc)./(sum(gj_norm_scale.^scale_chan_loc));
                 gj_norm_chan = gj_new;   
 
-                loc_mat(:,p.iina) = loc_vec(p.iina).*gj_norm_chan;
-                loc_mat(:,p.iinak) = loc_vec(p.iinak).*gj_norm_chan;
-                loc_mat(:,p.iik1) = loc_vec(p.iik1).*gj_norm_chan;
+                loc_mat(:, p.iina) = loc_vec(p.iina).*gj_norm_chan;
+                loc_mat(:, p.iinak) = loc_vec(p.iinak).*gj_norm_chan;
+                loc_mat(:, p.iik1) = loc_vec(p.iik1).*gj_norm_chan;
         end
 
         [Rmat, Cmat, Iind, Nnodes, f_I, iEC, cleft, indices] = ...
             generate_1D_Mdisc_cleft_ID_EpC(r, L, Ncell, Nint, Mdisc, D, Gb_mat, ...
-            Gc_array, IDarea_vec, loc_mat, scaleI, gj_norm, rho_ie,flag_compute_ggap,ggap);
+            Gc_array, IDarea_vec, loc_mat, scaleI, gj_norm, rho_ie, flag_compute_ggap, ggap);
 
-        Vol_cleft_vec =  fVol*repmat(FEM_data.partition_volume,4*(Ncell-1),1); % um^3
+        Vol_cleft_vec =  fVol*repmat(FEM_data.partition_volume, 4*(Ncell-1), 1); % um^3
 
     case '1D Mdisc cleft ID EpC hetg tissue'
         % Gc_array = f_disc*(FEM_data.cleft_adjacency_matrix)/p_ext;  % mS, Mdisc x Mdisc
@@ -512,7 +513,7 @@ switch tissue
         Mdisc = length(FEM_data.bulk_adjacency_matrix);
 
         % GJ area / connection parameters
-        [~,ind_conn] = min(sum((FEM_data.partition_centers-mean(FEM_data.partition_centers)).^2,2));
+        [~, ind_conn] = min(sum((FEM_data.partition_centers-mean(FEM_data.partition_centers)).^2, 2));
         Gc_array = zeros(Mdisc, Mdisc, Njuncs);
         Gb_mat = zeros(Mdisc, Njuncs);
         IDarea_vec = zeros(Mdisc, 2*Njuncs);
@@ -522,20 +523,20 @@ switch tissue
         for i = 1:Njuncs
             FEM_data = load(mesh_folder + FEM_file_list{tissue_legend(i)}); 
             FEM_data = FEM_data.FEM_data;
-            Gc_array(:,:,i) = f_disc*(FEM_data.cleft_adjacency_matrix)/p_ext;  % mS, Mdisc x Mdisc
-            Gb_mat(:,i) = f_bulk*FEM_data.bulk_adjacency_matrix'/p_ext;  % mS, 1 x Mdisc
-            IDarea_vec(:,2*i-1) = FEM_data.partition_surface;  % ID membrane patch surface area, um^2
-            IDarea_vec(:,2*i) = FEM_data.partition_surface;  % ID membrane patch surface area, um^2
-            Vol_cleft_vec =  [Vol_cleft_vec; fVol*repmat(FEM_data.partition_volume,4,1)]; % um^3
-%             gj_norm_list(:,i) = FEM_data.gj_area_norm;
-%             chan_area_norm_mat(:,2*i-1) = FEM_data.chan_area_norm;
-%             chan_area_norm_mat(:,2*i) = FEM_data.chan_area_norm;
+            Gc_array(:, :, i) = f_disc*(FEM_data.cleft_adjacency_matrix)/p_ext;  % mS, Mdisc x Mdisc
+            Gb_mat(:, i) = f_bulk*FEM_data.bulk_adjacency_matrix'/p_ext;  % mS, 1 x Mdisc
+            IDarea_vec(:, 2*i-1) = FEM_data.partition_surface;  % ID membrane patch surface area, um^2
+            IDarea_vec(:, 2*i) = FEM_data.partition_surface;  % ID membrane patch surface area, um^2
+            Vol_cleft_vec =  [Vol_cleft_vec; fVol*repmat(FEM_data.partition_volume, 4, 1)]; % um^3
+%             gj_norm_list(:, i) = FEM_data.gj_area_norm;
+%             chan_area_norm_mat(:, 2*i-1) = FEM_data.chan_area_norm;
+%             chan_area_norm_mat(:, 2*i) = FEM_data.chan_area_norm;
         end
         gj_norm_list = zeros(Mdisc, Njuncs);
         switch GJ_dist
             case "single"
 %                 % one GJ plaque closest to center node 
-%                 GJ_area = 100; GJ_adjacent = {[ind_conn find(Gc_array(ind_conn,:))]};
+%                 GJ_area = 100; GJ_adjacent = {[ind_conn find(Gc_array(ind_conn, :))]};
 %                 ggap_array = zeros(Mdisc, 1); % distribute to nodes
 %                 for i = 1:length(GJ_area)
 %                     ind = GJ_adjacent{i};
@@ -544,7 +545,7 @@ switch tissue
 %                 gj_norm = ggap_array/sum(ggap_array);
             case "equal"
 %                % equal distribution
-%                GJ_area = ones(1,Mdisc); GJ_adjacent = num2cell(1:Mdisc);
+%                GJ_area = ones(1, Mdisc); GJ_adjacent = num2cell(1:Mdisc);
 %                ggap_array = zeros(Mdisc, 1); % distribute to nodes
 %                 for i = 1:length(GJ_area)
 %                     ind = GJ_adjacent{i};
@@ -556,7 +557,7 @@ switch tissue
                 for i = 1:Njuncs
                     FEM_data = load(mesh_folder + FEM_file_list{tissue_legend(i)}); 
                     FEM_data = FEM_data.FEM_data;
-                    gj_norm_list(:,i) = vector_contrast(FEM_data.gj_area_norm,scale_gj_loc);
+                    gj_norm_list(:, i) = vector_contrast(FEM_data.gj_area_norm, scale_gj_loc);
                     
                 end
         end
@@ -571,16 +572,16 @@ switch tissue
                     tmp = FEM_data.partition_surface; tmp = tmp/sum(tmp);            
                     
                     %pre junc - def symmetrical
-                    loc_mat(:,:,2*i-1) = loc_vec.*tmp;
-                    loc_mat(:,p.iina,2*i-1) = loc_vec(p.iina)  .*vector_contrast(FEM_data.Na_area_norm,scale_chan_loc);
-                    loc_mat(:,p.iinak,2*i-1) = loc_vec(p.iinak).*vector_contrast(FEM_data.NKA_area_norm,scale_chan_loc);
-                    loc_mat(:,p.iik1,2*i-1) = loc_vec(p.iik1)  .*vector_contrast(FEM_data.Kir21_area_norm,scale_chan_loc);
+                    loc_mat(:, :, 2*i-1) = loc_vec.*tmp;
+                    loc_mat(:, p.iina, 2*i-1) = loc_vec(p.iina)  .*vector_contrast(FEM_data.Na_area_norm, scale_chan_loc);
+                    loc_mat(:, p.iinak, 2*i-1) = loc_vec(p.iinak).*vector_contrast(FEM_data.NKA_area_norm, scale_chan_loc);
+                    loc_mat(:, p.iik1, 2*i-1) = loc_vec(p.iik1)  .*vector_contrast(FEM_data.Kir21_area_norm, scale_chan_loc);
                     
                     %post junc
-                    loc_mat(:,:,2*i) = loc_vec.*tmp;
-                    loc_mat(:,p.iina,2*i) = loc_vec(p.iina)  .*vector_contrast(FEM_data.Na_area_norm,scale_chan_loc);
-                    loc_mat(:,p.iinak,2*i) = loc_vec(p.iinak).*vector_contrast(FEM_data.NKA_area_norm,scale_chan_loc);
-                    loc_mat(:,p.iik1,2*i) = loc_vec(p.iik1)  .*vector_contrast(FEM_data.Kir21_area_norm,scale_chan_loc);
+                    loc_mat(:, :, 2*i) = loc_vec.*tmp;
+                    loc_mat(:, p.iina, 2*i) = loc_vec(p.iina)  .*vector_contrast(FEM_data.Na_area_norm, scale_chan_loc);
+                    loc_mat(:, p.iinak, 2*i) = loc_vec(p.iinak).*vector_contrast(FEM_data.NKA_area_norm, scale_chan_loc);
+                    loc_mat(:, p.iik1, 2*i) = loc_vec(p.iik1)  .*vector_contrast(FEM_data.Kir21_area_norm, scale_chan_loc);
                 end
             case 'area'
                 tmp = IDarea_vec; tmp = tmp/sum(tmp);
@@ -590,15 +591,15 @@ switch tissue
                     FEM_data = FEM_data.FEM_data;
                     tmp = FEM_data.partition_surface; tmp = tmp/sum(tmp);            
                     %pre junc - def symmetrical
-                    loc_mat(:,:,2*i-1) = loc_vec.*tmp;
+                    loc_mat(:, :, 2*i-1) = loc_vec.*tmp;
                     %post junc
-                    loc_mat(:,:,2*i) = loc_vec.*tmp;
+                    loc_mat(:, :, 2*i) = loc_vec.*tmp;
                 end
         end
 
         [Rmat, Cmat, Iind, Nnodes, f_I, iEC, cleft, indices] = ...
             generate_1D_Mdisc_cleft_ID_EpC_tissue_hetg(r, L, Ncell, Nint, Mdisc, D, Gb_mat, ...
-            Gc_array, IDarea_vec, loc_mat, scaleI, gj_norm_list, rho_ie,flag_compute_ggap,ggap);
+            Gc_array, IDarea_vec, loc_mat, scaleI, gj_norm_list, rho_ie, flag_compute_ggap, ggap);
 end
 
 % create coeff matrices
@@ -609,8 +610,8 @@ end
 
 [Npatches, ~] = size(Iind);
 ind_last = (icells-1)*(Nint+2+Mdisc)+Nint+1;
-p.istim = (find(Iind(:,1)<=ind_last & Iind(:,2)==Nnodes)); 
-p.indstim = ismember((1:Npatches)',p.istim);
+p.istim = (find(Iind(:, 1)<=ind_last & Iind(:, 2)==Nnodes)); 
+p.indstim = ismember((1:Npatches)', p.istim);
 
 % indices of patches
 p.bcl = bcl;
@@ -624,7 +625,7 @@ Ncleft_comp = length(iEC)-1;
 switch model 
     case 'ORd11'
         % cell type
-        p.celltype = zeros(Npatches,1); %endo = 0, epi = 1, M = 2
+        p.celltype = zeros(Npatches, 1); %endo = 0, epi = 1, M = 2
         transmural_flag = 0;
 
         if transmural_flag
@@ -641,7 +642,7 @@ end
 %%%%% INITIALIZE/LOAD INITIAL COND
 
 if ~load_flag
-    phi0 = x0(1)*ones(Nnodes,1); % intracellular nodes
+    phi0 = x0(1)*ones(Nnodes, 1); % intracellular nodes
     phi0(iEC) = 0; % extracellular nodes
 
     Scleft = nan(4*Nnodes, 1); zvec = nan(4*Nnodes, 1);
@@ -651,7 +652,7 @@ if ~load_flag
     Scleft(3*Nnodes+1:4*Nnodes) = A_o; zvec(3*Nnodes+1:4*Nnodes) = -1;
     
 
-    g0 = nan(Nstate*Npatches,1);
+    g0 = nan(Nstate*Npatches, 1);
     for i = 1:Nstate
         g0(Npatches*(i-1)+1:i*Npatches) = x0(i+1);
     end
@@ -665,10 +666,10 @@ else
 %             ts = ts + final.t;
 %         case 'restart'
 %            ts = ts + load_restart_t;
-%            [~,i] = min(abs(restart.t - load_restartq_t));
-%            phi0 = restart.phi(:,i);
-%            g0 = restart.G(:,i);
-%            Scleft = restart.S(:,i);
+%            [~, i] = min(abs(restart.t - load_restartq_t));
+%            phi0 = restart.phi(:, i);
+%            g0 = restart.G(:, i);
+%            Scleft = restart.S(:, i);
 %     end
 
 end
@@ -682,11 +683,11 @@ end
 
 %%%% DISK CURRENT MATRICES
 % "disc" currents: indices of membrane patches that couple to corresponding
-% cleft nodes/compartments (by design, should always be 2 per cleft node,
+% cleft nodes/compartments (by design, should always be 2 per cleft node, 
 % pre- and post-junctional membrane pathces)
 ind_disc = nan(2, length(iEC)-1);
 for i = 1:length(iEC)-1
-    ind_disc(:,i) = find(Iind(:,2)==iEC(i));
+    ind_disc(:, i) = find(Iind(:, 2)==iEC(i));
 end
 q_disc = [iEC(1:end-1) iEC(1:end-1)+Nnodes iEC(1:end-1)+2*Nnodes iEC(1:end-1)+3*Nnodes];
 ind_cleft1_phivec = cleft.ind_cleft1_phivec; ind_cleft2_phivec = cleft.ind_cleft2_phivec;
@@ -700,33 +701,33 @@ Hcleft = cleft.Hcleft;
 
 H = zeros(Nnodes, length(iEC)-1);
 for i = 1:length(iEC)-1
-    H(iEC(i),i) = 1;
+    H(iEC(i), i) = 1;
 end
 H = sparse(H);
 
-ionic_fun = str2func(['@(t,x,p,S) ',ionic_fun_name,'(t,x,p,S)']);
+ionic_fun = str2func(['@(t, x, p, S) ', ionic_fun_name, '(t, x, p, S)']);
 p.f_I = f_I;
 
 % collect Vm
 phi_i = phi0; G_i = g0;
-Vm = phi_i(Iind(:,1)) - phi_i(Iind(:,2));
-Sp = [Scleft(Iind(:,2)); Scleft(Iind(:,2)+Nnodes); Scleft(Iind(:,2)+2*Nnodes)];
+Vm = phi_i(Iind(:, 1)) - phi_i(Iind(:, 2));
+Sp = [Scleft(Iind(:, 2)); Scleft(Iind(:, 2)+Nnodes); Scleft(Iind(:, 2)+2*Nnodes)];
 [~, ~, ~, ~, I_new] = ionic_fun(0, [Vm; G_i], p, Sp);
 
 %get indices to save phi_axial for full length
 icleft = iEC(1:end-1);
-iintra = setdiff(1:Nnodes-1,icleft);
-[~,ind] = sort(Iind(:,1));
+iintra = setdiff(1:Nnodes-1, icleft);
+[~, ind] = sort(Iind(:, 1));
 [ind_axial, ~] = ind2sub([length(ind) length(indices.ind_axial)], find(ind == indices.ind_axial));
-phi_axial_all = zeros(length(ind_axial),length(ts));
+phi_axial_all = zeros(length(ind_axial), length(ts));
 
 % save counters, other times
 count_save = 1; count_all = 1; 
 ti = 0;  % initialize time
 
-beat_num = ones(Npatches,1);
-tup = nan(Npatches,1);
-trepol = nan(Npatches,1);
+beat_num = ones(Npatches, 1);
+tup = nan(Npatches, 1);
+trepol = nan(Npatches, 1);
 Vm_old = Vm; Vthresh = -60; % mV
 
 
@@ -750,11 +751,11 @@ while ti < T
 %     end
 
     %%%% display
-    if ~mod(ti,500)
+    if ~mod(ti, 500)
         disp(save_name + " progress: " + string(ti/T));
     end
 
-    if mod(ti,bcl)<twin
+    if mod(ti, bcl)<twin
         dt = dt1; dt_samp = dt1_samp; Ns = Ns1; Q = Q1; C = C1; P = P1;
     else
         dt = dt2; dt_samp = dt2_samp; Ns = Ns2; Q = Q2; C = C2; P = P2;
@@ -762,10 +763,10 @@ while ti < T
     p.dt = dt;
 
     % collect Vm
-    Vm = phi_i(Iind(:,1)) - phi_i(Iind(:,2));
+    Vm = phi_i(Iind(:, 1)) - phi_i(Iind(:, 2));
 
     % collect S (cleft ionic concentration)
-    Sp = [Scleft(Iind(:,2)); Scleft(Iind(:,2)+Nnodes); Scleft(Iind(:,2)+2*Nnodes)];
+    Sp = [Scleft(Iind(:, 2)); Scleft(Iind(:, 2)+Nnodes); Scleft(Iind(:, 2)+2*Nnodes)];
     % calculate ionic currents / update gating variables
     [G_new, Iion, Ivec, ~, I_new] = ionic_fun(ti, [Vm; G_i], p, Sp);
 
@@ -784,7 +785,7 @@ while ti < T
         Scleft(q_disc) = Scleft(q_disc) + dS;
     end
 
-    Hbulk = sum(reshape(Ibulk_term, length(iEC)-1,4),2);
+    Hbulk = sum(reshape(Ibulk_term, length(iEC)-1, 4), 2);
     % update voltages
     phi_new = P \ (Q*phi_i + C*Iion - H*Hbulk);
 
@@ -803,17 +804,17 @@ while ti < T
     %save whole sim data- just phi_axial
     if ~mod(ti, dt_samp) 
         phi_i = phi_new(iintra);
-        phi_axial_all(:,count_all) = phi_i(ind_axial); 
+        phi_axial_all(:, count_all) = phi_i(ind_axial); 
         count_all = count_all + 1;
     end
     
     %save last beat - for all 
     if ~mod(ti, dt_samp) && ti>(ts(end) - save_int)
         
-        mat_file_save.phi_save(1:length(phi_new),count_save) = phi_new;
-        mat_file_save.G_save(1:length(G_new),count_save) = G_new;
-        mat_file_save.S_save(1:length(Scleft),count_save) = Scleft;
-        mat_file_save.I_save(1:length(I_new),count_save) = I_new;
+        mat_file_save.phi_save(1:length(phi_new), count_save) = phi_new;
+        mat_file_save.G_save(1:length(G_new), count_save) = G_new;
+        mat_file_save.S_save(1:length(Scleft), count_save) = Scleft;
+        mat_file_save.I_save(1:length(I_new), count_save) = I_new;
         count_save = count_save + 1;
         
     end
@@ -829,8 +830,10 @@ toc
 %save rest of data
 if save_flag_data   
     p.loc_vec = loc_vec;
-    save_data_final(local_save_name,bcl,p,iEC,Nnodes,Ncell,Ncurrents,indices,Mdisc,...
-           phi_axial_all,Iind,ts,model,FEM_file_list,tissue_legend,tup,trepol,ts_save,Nint)
+    save_data_final(local_save_name, bcl, D, scale_gj_loc, scale_chan_loc, ...
+        p, iEC, Nnodes, Ncell, Ncurrents, indices, Mdisc, ...
+        phi_axial_all, Iind, ts, model, FEM_file_list, tissue_legend, ...
+        tup, trepol, ts_save, Nint)
 end
 
 % copy data from compute node memory to scratch
@@ -844,15 +847,19 @@ end
 
 
 
-function save_data_final(local_save_name,bcl,p,iEC,Nnodes,Ncell,Ncurrents,indices,Mdisc,...
-       phi_axial_all,Iind,ts,model,FEM_file_list,tissue_legend,tup,trepol,ts_save,Nint)
+function save_data_final(local_save_name, bcl, D, scale_gj_loc, scale_chan_loc, ...
+        p, iEC, Nnodes, Ncell, Ncurrents, indices, Mdisc, ...
+        phi_axial_all, Iind, ts, model, FEM_file_list, tissue_legend, ...
+        tup, trepol, ts_save, Nint)
 
-   save(local_save_name,'bcl','p','iEC','Nnodes','Ncell','Ncurrents','indices','Mdisc',...
-       'phi_axial_all','Iind','ts','model','FEM_file_list','tissue_legend','tup','trepol','ts_save','Nint','-append');
+   save(local_save_name, 'bcl', 'D', 'scale_gj_loc', 'scale_chan_loc', ...
+        'p', 'iEC', 'Nnodes', 'Ncell', 'Ncurrents', 'indices', 'Mdisc', ...
+        'phi_axial_all', 'Iind', 'ts', 'model', 'FEM_file_list', 'tissue_legend',...
+        'tup', 'trepol', 'ts_save', 'Nint', '-append');
 end
 
 %scale_contrast>1 - increase conc, =1 same, <1 spread out values
-function vec = vector_contrast(vec,scale_contrast)
+function vec = vector_contrast(vec, scale_contrast)
     vec = (vec.^scale_contrast)./(sum(vec.^scale_contrast));  
 end
 
