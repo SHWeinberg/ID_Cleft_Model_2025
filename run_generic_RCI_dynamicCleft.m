@@ -1,6 +1,5 @@
 clear
 
-
 walltime = getenv('EXP_WALLTIME');
 
 %cluster settings !!! THIS requests compute nodes directly, not the SLURM file !!!
@@ -10,8 +9,6 @@ cluster.AdditionalProperties.AccountName = 'PAS1622'; % set account name
 cluster.AdditionalProperties.WallTime = walltime; % walltime is set in starting sbatch
 cluster.AdditionalProperties.MemPerCPU = '4gb'; 
 cluster.saveProfile; % locally save the profile
-
-
 
 cycle_vec = [200:5:300 350:50:1000];
 % cycle_vec = [1,2];
@@ -26,8 +23,6 @@ parfor i_parfor = 1:N_par
 % model = 'LR1';
 model = 'ORd11';
 
-
-
 % tissue = '1D Mdisc cleft EpC';
 % tissue = '1D single cleft EpC';
 % tissue = '1D Mdisc cleft ID EpC';
@@ -35,9 +30,6 @@ tissue = '1D Mdisc cleft ID EpC hetg tissue';
 
 ID_dist = 'chan';
 GJ_dist = 'mesh';
-scale_gj_loc = 1;
-scale_chan_loc = 1;
-D_coupling = 1;
 
 % time parameters
 % bcl = 1000;  % ms
@@ -54,14 +46,14 @@ load_restart_t = 340; % time (ms) of restart, must be defined if restart using v
 
 % time step (use different time step between stim and twin)
 dt_factor = 1;
+if scale_chan_loc>=500 || scale_gj_loc>=500
+    dt_factor = 5;
+end
 
 dt1 = .01./dt_factor; % ms, dt between stim and twin (0.01 for EpC)
 dt2 = .1./dt_factor; % ms, dt between twin and next stim
 
-if scale_chan_loc>=500 || scale_gj_loc>=500
-    dt1 = .01./5; % ms, dt between stim and twin (0.01 for EpC)
-    dt2 = .1./5; % ms, dt between twin and next stim
-end
+
 
 
 dtS1 = dt1/5;  % ms, cleft concentration time step 1
@@ -118,6 +110,10 @@ Njuncs = Ncell-1;
 tissue_legend = zeros(Njuncs,1) + 1; %index that chooses mesh from FEM_file_list; one less node than Ncell
 % tissue_legend(21:30) = 2; uniform tissue for CV restitution - comment out
 
+%can make these depend on tissue leg
+scale_gj_loc = 1;
+scale_chan_loc = 1;
+D_coupling = 1;
 
 % save parameters; restart data will be in the same file
 save_flag_data = 1;
@@ -519,23 +515,11 @@ switch tissue
 %                 gj_norm = ggap_array/sum(ggap_array);
 
             case "mesh"
-                
                 for i = 1:Njuncs
                     FEM_data = load(mesh_folder + FEM_file_list{tissue_legend(i)}); 
                     FEM_data = FEM_data.FEM_data;
-                    gj_norm_list(:,i) = FEM_data.gj_area_norm;
-
-                end
-                
-           case "mesh_scaled"  %chan - chan_mean +1)^scale - 1 + chan_mean
-                for i = 1:Njuncs
-                    FEM_data = load(mesh_folder + FEM_file_list{tissue_legend(i)}); 
-                    FEM_data = FEM_data.FEM_data;
-                    gj_norm = FEM_data.gj_area_norm;
-                    gj_norm_scale = gj_norm + (1-mean(gj_norm));   
-                    gj_new = (gj_norm_scale.^scale_gj_loc)./(sum(gj_norm_scale.^scale_gj_loc));
-                    gj_norm = gj_new; 
-                    gj_norm_list(:,i) = gj_norm;
+                    gj_norm_list(:,i) = vector_contrast(FEM_data.gj_area_norm,scale_gj_loc);
+                    
                 end
         end
 
@@ -550,15 +534,15 @@ switch tissue
                     
                     %pre junc - def symmetrical
                     loc_mat(:,:,2*i-1) = loc_vec.*tmp;
-                    loc_mat(:,p.iina,2*i-1) = loc_vec(p.iina).*FEM_data.Na_area_norm;
-                    loc_mat(:,p.iinak,2*i-1) = loc_vec(p.iinak).*FEM_data.NKA_area_norm;
-                    loc_mat(:,p.iik1,2*i-1) = loc_vec(p.iik1).*FEM_data.Kir21_area_norm;
+                    loc_mat(:,p.iina,2*i-1) = loc_vec(p.iina)  .*vector_contrast(FEM_data.Na_area_norm,scale_chan_loc);
+                    loc_mat(:,p.iinak,2*i-1) = loc_vec(p.iinak).*vector_contrast(FEM_data.NKA_area_norm,scale_chan_loc);
+                    loc_mat(:,p.iik1,2*i-1) = loc_vec(p.iik1)  .*vector_contrast(FEM_data.Kir21_chan_norm,scale_chan_loc);
                     
                     %post junc
                     loc_mat(:,:,2*i) = loc_vec.*tmp;
-                    loc_mat(:,p.iina,2*i) = loc_vec(p.iina).*FEM_data.Na_area_norm;
-                    loc_mat(:,p.iinak,2*i) = loc_vec(p.iinak).*FEM_data.NKA_area_norm;
-                    loc_mat(:,p.iik1,2*i) = loc_vec(p.iik1).*FEM_data.Kir21_area_norm;
+                    loc_mat(:,p.iina,2*i) = loc_vec(p.iina)  .*vector_contrast(FEM_data.Na_area_norm,scale_chan_loc);
+                    loc_mat(:,p.iinak,2*i) = loc_vec(p.iinak).*vector_contrast(FEM_data.NKA_area_norm,scale_chan_loc);
+                    loc_mat(:,p.iik1,2*i) = loc_vec(p.iik1)  .*vector_contrast(FEM_data.Kir21_chan_norm,scale_chan_loc);
                 end
             case 'area'
                 tmp = IDarea_vec; tmp = tmp/sum(tmp);
@@ -929,4 +913,8 @@ function save_data_final(local_save_name,bcl,p,iEC,Nnodes,Ncell,Ncurrents,indice
        'phi_axial_all','Iind','ts','model','FEM_file_list','tissue_legend','tup','trepol','ts_save','Nint','-append');
 end
 
+%scale_contrast>1 - increase conc, =1 same, <1 spread out values
+function vec = vector_contrast(vec,scale_contrast)
+    vec = (vec.^scale_contrast)./(sum(vec.^scale_contrast));  
+end
 
