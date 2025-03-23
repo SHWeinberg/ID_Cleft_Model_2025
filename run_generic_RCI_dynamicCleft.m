@@ -2,6 +2,7 @@ clear
 
 walltime = getenv('EXP_WALLTIME');
 
+%%%% CLUSTER SETTINGS - comment out to run locally
 %cluster settings !!! THIS requests compute nodes directly, not the SLURM file !!!
 % requests N_par cores
 cluster = parcluster; % get a handle to cluster profile 
@@ -14,12 +15,16 @@ cycle_vec = [200:5:300 350:50:1000];
 % cycle_vec = [1,2];
 N_par = length(cycle_vec); 
 
-%start cluster with no of needed sims
+% %start cluster with no of needed sims - comment out to run locally
 parpool(cluster,N_par)
 pctRunOnAll warning('off','MATLAB:mir_warning_maybe_uninitialized_temporary')
 
-%make sure to make save file depent on parfor
+
+%%%% PARFOR LOOP - switch to for for one local run
+%make sure to make save file name depend on parfor
 parfor i_parfor = 1:N_par
+    
+%%%%% MODEL/TISSUE PARAMS
 % model = 'LR1';
 model = 'ORd11';
 
@@ -31,53 +36,13 @@ tissue = '1D Mdisc cleft ID EpC hetg tissue';
 ID_dist = 'chan';
 GJ_dist = 'mesh';
 
-% time parameters
-% bcl = 1000;  % ms
-bcl = cycle_vec(i_parfor);
-nbeats = 10;
-T = bcl*nbeats;
-% T = 20;
-
-% load parameters
-load_flag = 0;
-load_name = 'Continue_Test';
-load_case = 'restart';
-load_restart_t = 340; % time (ms) of restart, must be defined if restart using values in "restart" structure
-
-% time step (use different time step between stim and twin)
-dt_factor = 1;
-if scale_chan_loc>=500 || scale_gj_loc>=500
-    dt_factor = 5;
-end
-
-dt1 = .01./dt_factor; % ms, dt between stim and twin (0.01 for EpC)
-dt2 = .1./dt_factor; % ms, dt between twin and next stim
-
-
-
-
-dtS1 = dt1/5;  % ms, cleft concentration time step 1
-dtS2 = dt2/10;   % ms, cleft concentration time step 2
-
-Ns1 = round(dt1/dtS1);  % operator splitting for cleft concentrations
-Ns2 = round(dt2/dtS2);  % operator splitting for cleft concentrations
-% sampling interval
-dt1_samp = dt1*dt_factor*4; % ms 0
-dt2_samp = dt2*dt_factor*4; % ms
-twin = 50;
-trange = [0 T];
-
 % cleft / bulk ionic concentrations;
 K_o = 5.4;                  % mM
 Na_o = 140;                 % mM
 Ca_o = 1.8;                 % mM
+A_o = Na_o + K_o + 2*Ca_o;  % anion A- concentration, mM
 clamp_flag = [0; 0; 0; 0]; % Na, K, Ca, A (clamping the cleft), 1 = clamped
 
-ts = get_time_variable(trange, dt1_samp, dt2_samp, twin, bcl);
-save_int = bcl+50;%last x ms to save - save last cycle + 50ms before
-% save_int = 1100;
-ts_save = ts(ts>=(ts(end) - save_int));
-Nts = length(ts_save);
 
 % cell geometry
 Cm = 1*1e-8;      % membrane capacitance, uF/um^2
@@ -95,11 +60,14 @@ locICa = 0.2; %0.2
 locINaK = 0.2; %0.2
 locUniform = 2*Ad/Atot;
 
-% cell and tissue parameters
-%     FEM_file = 'mesh_data/FEMDATA_V_100Parts_IP16nm_P17nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan_GJ_down_1.5_1.5.mat';
-% FEM_file_list =  ['FEMDATA_V_100Parts_IP16nm_P17nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat';...
-%                   'FEMDATA_V_100Parts_IP60nm_P60nm_Map1_Gjy_Wvy_MJ_0_peri_0_chan.mat'];
-              
+% constants
+F = 96.5;                   % Faraday constant, coulombs/mmol
+R = 8.314;                  % gas constant, J/K
+Temp = 273+37;                 % absolute temperature, K
+RTF=(R*Temp/F);                % mV
+
+
+%%%%%% CELL/TISSUE GEOM
 FEM_file_list =  {'FEMDATA_baseline.mat','FEMDATA_p60_ip60.mat'};
                                                    
 mesh_folder = "mesh_data/";
@@ -113,8 +81,42 @@ tissue_legend = zeros(Njuncs,1) + 1; %index that chooses mesh from FEM_file_list
 %can make these depend on tissue leg
 scale_gj_loc = 1;
 scale_chan_loc = 1;
-D_coupling = 1;
+D = 1;
 
+%%%%%% TIME
+% bcl = 1000;  % ms
+bcl = cycle_vec(i_parfor);
+nbeats = 10;
+T = bcl*nbeats;
+% T = 20;
+
+% time step (use different time step between stim and twin)
+dt_factor = 1;
+if scale_chan_loc>=500 || scale_gj_loc>=500
+    dt_factor = 5;
+end
+
+dt1 = .01./dt_factor; % ms, dt between stim and twin (0.01 for EpC)
+dt2 = .1./dt_factor; % ms, dt between twin and next stim
+
+dtS1 = dt1/5;  % ms, cleft concentration time step 1
+dtS2 = dt2/10;   % ms, cleft concentration time step 2
+
+Ns1 = round(dt1/dtS1);  % operator splitting for cleft concentrations
+Ns2 = round(dt2/dtS2);  % operator splitting for cleft concentrations
+% sampling interval
+dt1_samp = dt1*dt_factor*4; % ms 0
+dt2_samp = dt2*dt_factor*4; % ms
+twin = 50;
+trange = [0 T];
+
+ts = get_time_variable(trange, dt1_samp, dt2_samp, twin, bcl);
+save_int = bcl+50;%last x ms to save - save last cycle + 50ms before
+% save_int = 1100;
+ts_save = ts(ts>=(ts(end) - save_int));
+Nts = length(ts_save);
+
+%%%% SAVE/LOAD PARAMS
 % save parameters; restart data will be in the same file
 save_flag_data = 1;
 
@@ -122,7 +124,7 @@ save_flag_data = 1;
 % save_folder = "data/save/";
 localDir = getenv('TMPDIR') + "/";
 
-save_name = "cycle" + string(bcl) + "_beats" + string(nbeats) + "_D" + string(D_coupling);
+save_name = "cycle" + string(bcl) + "_beats" + string(nbeats) + "_D" + string(D);
 
 % add further mesh names as needed if we have>2 diff IDs 
 if any(tissue_legend==2) 
@@ -139,23 +141,67 @@ local_save_name = localDir + save_name + ".mat";
 scratchDir = '/fs/scratch/PAS1622/nickmoise/ID_2025/';
 scratch_save_name = scratchDir + save_name + ".mat";     
 
-
-% t_save = [300:10:400];  % ms, time points to save all state variables NOT USED
-
 mat_file_save = matfile(local_save_name, 'Writable', true);
-
 disp(save_name);
+
+% load parameters
+load_flag = 0;
+load_name = 'Continue_Test';
+load_case = 'restart';
+load_restart_t = 340; % time (ms) of restart, must be defined if restart using values in "restart" structure
+
+
+
+
+%%%% MODEL/TISSUE SETUP
+%cell no params
+Nint = 1;   % number of intracellular nodes
+icells = 1;
+ggap =  7.35e-04 * D;   % def  7.35e-04  3.6043e-04 1.4168e-04 4.0046e-05 7.9755e-06
+p_ext = 150*10;  % extracellular resistivity, k-ohm*um
+fVol = 1;  % cleft volume scaling factor
+f_disc = 1; f_bulk = 1; % cleft conductance scaling factors
+rho_ie = 1;  % ratio of intracellular (ID)-to-extracellular (cleft) resistivity
+
+
+flag_compute_ggap = 0; %compute ggap from mesh properties instead of fixed val
+if flag_compute_ggap == 1
+    baseline_gj_area = 41.66;
+    baseline_ggap = 7.35e-04;
+    ggap_area_ratio = baseline_ggap./baseline_gj_area;
+    ggap = ggap_area_ratio .* FEM_data.gj_total_area * D;
+end
 
 switch model
     case 'LR1'
         Ncurrents = 6;
-        scaleI = ones(1,Ncurrents);
-        p.iina = 1; p.iisi = 2; p.iik = 3;
-        p.iik1 = 4; p.iikp = 5; p.iib = 6;
 
         loc_vec = zeros(1, Ncurrents);
         loc_vec(p.iina) = locINa;
         loc_vec(p.iik1) = locIK1;
+        
+        [p, x0] = InitialConstants_LR91(Atot);
+        p.iina = 1; p.iisi = 2; p.iik = 3;
+        p.iik1 = 4; p.iikp = 5; p.iib = 6;
+        % order is determined by code in fun_name
+        % INa, Isi, IK, IK1, IKp, Ib
+        Ncurrents = 6;
+        scaleI = ones(1,Ncurrents);
+
+        % ionic model-specific parameters
+        ionic_fun_name = 'fun_LR1';
+
+        % initial conditions
+        Nstate = 8-1;  % number of state variables, excluding Vm, per patch
+        p.mLR1 = 1; % flag for modified LR1 model with Ca2+ speedup
+
+        % stimulus parameters
+        p.stim_dur = 1;   % ms
+        p.stim_amp = .5*80e-8*Atot;    % uA
+        p.istim = 1;
+
+        % extracellular ionic concentrations
+        p.Na_o = Na_o; p.K_o = K_o; p.Ca_o = Ca_o;
 
     case 'ORd11'
         Ncurrents = 14;
@@ -177,6 +223,31 @@ switch model
         loc_vec(p.iito) = locUniform;
         loc_vec(p.iikr) = locUniform;
         loc_vec(p.iiks) = locUniform;
+        
+        % order is determined by code in fun_name
+        % INa INaL Ito ICaL IKr IKs IK1 INaCa_i INaCa_ss INaK  IKb INab ICab IpCa
+        %          scaleI(2) = 5; scaleI(5) = .15; % generates EADs for bcl = 1000, homogeneous endo, D=1 cable
+
+        % additional scaling factors
+        p.fSERCA = 1; p.fRyR = 1; p.ftauhL = 1;
+        p.fCaMKa = 1; p. fIleak = 1; p.fJrel = 1;
+
+        % ionic model-specific parameters
+        ionic_fun_name = 'fun_ORd11';
+
+        % initial conditions
+        %initial conditions for state variables
+        x0 = Initial_ORd11;
+        %         x0 = 1e2*[-0.879989146999539, 0.070944539841272, 0.070945359018008, 1.448320027716102, 1.448319784601420, 0.000000851590737, 0.000000840540955, 0.016028979649317, 0.015570572412294, 0.000073463295678, 0.006980036544213, 0.006979869883167, 0.006978935065780, 0.004548302689923, 0.006978307799113, 0.000001883686661, 0.005011493681533, 0.002694910834916, 0.000010012992091, 0.009995539443664, 0.005900573961157, 0.000005101890248, 0.009995539516859, 0.006425686271562, 0.000000000023424, 0.009999999908676, 0.009093809723890, 0.009999999908675, 0.009998130840372, 0.009999751803949, 0.000026423594695, 0.009999999908620, 0.009999999908648, 0.000000080785953, 0.004517981715199, 0.002727141574241, 0.000001929116438, 0.009967605243606, 0.000000002422481, 0.000000003026518, 0.000122276951936];
+        %X0 is the vector for initial sconditions for state variables
+
+        Nstate = 41-1;  % number of state variables, excluding Vm, per patch
+
+        % stimulus parameters
+        p.stim_dur = 2;   % ms
+        p.stim_amp = 1*50;    % uA/uF
+
+
 
     case 'Court98'
         Ncurrents = 13;
@@ -197,39 +268,42 @@ switch model
         loc_vec(p.iito) = locUniform;
         loc_vec(p.iikr) = locUniform;
         loc_vec(p.iiks) = locUniform;
+        
+        % order is determined by code in fun_name
+        % INa IK1 Ito IKur IKr IKs IBNa IBK IBCa INaK ICaP INaCa ICaL
+        %
+        %         loc_vec(p.iito) = locUniform;
+        %         loc_vec(p.iikr) = locUniform;
+        %         loc_vec(p.iiks) = locUniform;
+        % ionic model-specific parameters
+        ionic_fun_name = 'fun_courtemachne98';
+
+        % initial conditions
+        %initial conditions for state variables
+        x0 = Initial_Court98;
+        %X0 is the vector for initial sconditions for state variables
+
+        Nstate = 21-1;  % number of state variables, including Vm, per patch
+        % stimulus parameters
+        p.stim_dur = 1;   % ms
+        p.stim_amp = -60;    % uA/uF   
 
 end
 switch tissue
     case '1D single cleft EpC'
-        Nint = 2;   % number of intracellular nodes
         Mdisc = 1;
-        icells = 2;
-        D = D_coupling; % cm^2/s
         w = 10e-3;  % cleft width, um
-        fVol = 0.1;  % cleft volume scaling factor
+        fVol = fVol/10;  % cleft volume scaling factor - diff from the rest?
         Gc_array = 0;
         [Rmat, Cmat, Iind, Nnodes, f_I, iEC, Vol_cleft, cleft, indices] = ...
             generate_1D_single_cleft_EpC(r, L, Ncell, Nint, D, w, loc_vec, scaleI, fVol);
-
         Vol_cleft_vec = Vol_cleft*ones(4*(length(iEC)-1),1);
 
     case '1D Mdisc cleft EpC'
-        Nint = 2;   % number of intracellular nodes
-        D = D_coupling; % cm^2/s
-        fVol = 1;  % cleft volume scaling factor
-
-        icells = 1;
-
-        p_ext = 150*10;  % extracellular resistivity, k-ohm*um
-        f_disc = 1; f_bulk = 1; % cleft conductance scaling factors
-
         Gc_array = f_disc*(FEM_data.cleft_adjacency_matrix)/p_ext;  % mS, Mdisc x Mdisc
         Gb_mat = f_bulk*FEM_data.bulk_adjacency_matrix'/p_ext;  % mS, 1 x Mdisc
 
         IDarea_vec = FEM_data.partition_surface;  % ID membrane patch surface area, um^2
-        
-        ggap =  7.35e-04 * D;   % def  7.35e-04  3.6043e-04 1.4168e-04 4.0046e-05 7.9755e-06
-
         Mdisc = length(Gb_mat);
 
         %channel localization
@@ -298,42 +372,17 @@ switch tissue
                 loc_mat(:,p.iik1) = loc_vec(p.iik1).*gj_norm_chan;
         end
 
-
-
-
-
         [Rmat, Cmat, Iind, Nnodes, f_I, iEC, cleft, indices] = ...
             generate_1D_Mdisc_cleft_EpC(r, L, Ncell, Nint, Mdisc, D, Gb_mat, ...
             Gc_array, IDarea_vec, loc_mat, scaleI,ggap);
 
-
         Vol_cleft_vec =  fVol*repmat(FEM_data.partition_volume,4*(Ncell-1),1); % um^3
 
     case '1D Mdisc cleft ID EpC'
-        Nint = 1;   % number of intracellular nodes
-        D = D_coupling; % cm^2/s
-        flag_compute_ggap = 0;
-
-        baseline_gj_area = 41.66;
-        baseline_ggap = 7.35e-04;
-        ggap_area_ratio = baseline_ggap./baseline_gj_area;
-%             ggap = ggap_area_ratio .* FEM_data.gj_total_area * D
-        ggap =  7.35e-04 * D;   % def  7.35e-04  3.6043e-04 1.4168e-04 4.0046e-05 7.9755e-06
-        fVol = 1;  % cleft volume scaling factor
-
-        icells = 1;
-
-        p_ext = 150*10;  %*10 extracellular resistivity, k-ohm*um
-        f_disc = 1; f_bulk = 1; % cleft conductance scaling factors
-
         Gc_array = f_disc*(FEM_data.cleft_adjacency_matrix)/p_ext;  % mS, Mdisc x Mdisc
         Gb_mat = f_bulk*FEM_data.bulk_adjacency_matrix'/p_ext;  % mS, 1 x Mdisc
-
         IDarea_vec = FEM_data.partition_surface;  % ID membrane patch surface area, um^2
-
         Mdisc = length(Gb_mat);
-
-        rho_ie = 1;  % ratio of intracellular (ID)-to-extracellular (cleft) resistivity
 
         % GJ area / connection parameters
         [~,ind_conn] = min(sum((FEM_data.partition_centers-mean(FEM_data.partition_centers)).^2,2));
@@ -433,7 +482,6 @@ switch tissue
                 loc_mat(:,p.iik1) = loc_vec(p.iik1).*gj_norm_chan;
         end
 
-
         [Rmat, Cmat, Iind, Nnodes, f_I, iEC, cleft, indices] = ...
             generate_1D_Mdisc_cleft_ID_EpC(r, L, Ncell, Nint, Mdisc, D, Gb_mat, ...
             Gc_array, IDarea_vec, loc_mat, scaleI, gj_norm, rho_ie,flag_compute_ggap,ggap);
@@ -441,40 +489,16 @@ switch tissue
         Vol_cleft_vec =  fVol*repmat(FEM_data.partition_volume,4*(Ncell-1),1); % um^3
 
     case '1D Mdisc cleft ID EpC hetg tissue'
-        
-        Nint = 1;   % number of intracellular nodes
-        D = D_coupling; % cm^2/s
-        flag_compute_ggap = 0;
-
-        baseline_gj_area = 41.66;
-        baseline_ggap = 7.35e-04;
-        ggap_area_ratio = baseline_ggap./baseline_gj_area;
-%             ggap = ggap_area_ratio .* FEM_data.gj_total_area * D
-        ggap =  7.35e-04 * D;   % def  7.35e-04  3.6043e-04 1.4168e-04 4.0046e-05 7.9755e-06
-        fVol = 1;  % cleft volume scaling factor
-
-        icells = 1;
-
-        p_ext = 150*10;  %*10 extracellular resistivity, k-ohm*um
-        f_disc = 1; f_bulk = 1; % cleft conductance scaling factors
-
         % Gc_array = f_disc*(FEM_data.cleft_adjacency_matrix)/p_ext;  % mS, Mdisc x Mdisc
         % Gb_mat = f_bulk*FEM_data.bulk_adjacency_matrix'/p_ext;  % mS, 1 x Mdisc
-
         % IDarea_vec = FEM_data.partition_surface;  % ID membrane patch surface area, um^2
 
         FEM_data = load(mesh_folder + FEM_file_list{tissue_legend(1)}); 
         FEM_data = FEM_data.FEM_data;
         Mdisc = length(FEM_data.bulk_adjacency_matrix);
 
-        rho_ie = 1;  % ratio of intracellular (ID)-to-extracellular (cleft) resistivity
-
         % GJ area / connection parameters
         [~,ind_conn] = min(sum((FEM_data.partition_centers-mean(FEM_data.partition_centers)).^2,2));
-        
-        
-        
-        
         Gc_array = zeros(Mdisc, Mdisc, Njuncs);
         Gb_mat = zeros(Mdisc, Njuncs);
         IDarea_vec = zeros(Mdisc, 2*Njuncs);
@@ -536,13 +560,13 @@ switch tissue
                     loc_mat(:,:,2*i-1) = loc_vec.*tmp;
                     loc_mat(:,p.iina,2*i-1) = loc_vec(p.iina)  .*vector_contrast(FEM_data.Na_area_norm,scale_chan_loc);
                     loc_mat(:,p.iinak,2*i-1) = loc_vec(p.iinak).*vector_contrast(FEM_data.NKA_area_norm,scale_chan_loc);
-                    loc_mat(:,p.iik1,2*i-1) = loc_vec(p.iik1)  .*vector_contrast(FEM_data.Kir21_chan_norm,scale_chan_loc);
+                    loc_mat(:,p.iik1,2*i-1) = loc_vec(p.iik1)  .*vector_contrast(FEM_data.Kir21_area_norm,scale_chan_loc);
                     
                     %post junc
                     loc_mat(:,:,2*i) = loc_vec.*tmp;
                     loc_mat(:,p.iina,2*i) = loc_vec(p.iina)  .*vector_contrast(FEM_data.Na_area_norm,scale_chan_loc);
                     loc_mat(:,p.iinak,2*i) = loc_vec(p.iinak).*vector_contrast(FEM_data.NKA_area_norm,scale_chan_loc);
-                    loc_mat(:,p.iik1,2*i) = loc_vec(p.iik1)  .*vector_contrast(FEM_data.Kir21_chan_norm,scale_chan_loc);
+                    loc_mat(:,p.iik1,2*i) = loc_vec(p.iik1)  .*vector_contrast(FEM_data.Kir21_area_norm,scale_chan_loc);
                 end
             case 'area'
                 tmp = IDarea_vec; tmp = tmp/sum(tmp);
@@ -561,77 +585,30 @@ switch tissue
         [Rmat, Cmat, Iind, Nnodes, f_I, iEC, cleft, indices] = ...
             generate_1D_Mdisc_cleft_ID_EpC_tissue_hetg(r, L, Ncell, Nint, Mdisc, D, Gb_mat, ...
             Gc_array, IDarea_vec, loc_mat, scaleI, gj_norm_list, rho_ie,flag_compute_ggap,ggap);
-
 end
 
+% create coeff matrices
 [P1, Q1, C1] = create_coefficient_matrices(Nnodes, Rmat, Cmat, Iind, dt1);
 % Pinv1 = inv(P1); 
 [P2, Q2, C2] = create_coefficient_matrices(Nnodes, Rmat, Cmat, Iind, dt2);
 % Pinv2 = inv(P2); 
 
-
 [Npatches, ~] = size(Iind);
+ind_last = (icells-1)*(Nint+2+Mdisc)+Nint+1;
+p.istim = (find(Iind(:,1)<=ind_last & Iind(:,2)==Nnodes)); 
+p.indstim = ismember((1:Npatches)',p.istim);
 
 % indices of patches
+p.bcl = bcl;
+p.Npatches = Npatches;
+p.L = L; p.r = r;
+p.Ctot = Atot*Cm;   % total cell capacitance, uF
 
-switch model  
-    case 'LR1'
-        [p, x0] = InitialConstants_LR91(Atot);
-        p.iina = 1; p.iisi = 2; p.iik = 3;
-        p.iik1 = 4; p.iikp = 5; p.iib = 6;
-        % order is determined by code in fun_name
-        % INa, Isi, IK, IK1, IKp, Ib
-        Ncurrents = 6;
-        scaleI = ones(1,Ncurrents);
+Ncleft_comp = length(iEC)-1;
 
-        % ionic model-specific parameters
-        ionic_fun_name = 'fun_LR1';
-
-        % initial conditions
-        Nstate = 8-1;  % number of state variables, excluding Vm, per patch
-        p.mLR1 = 1; % flag for modified LR1 model with Ca2+ speedup
-
-        % stimulus parameters
-        p.stim_dur = 1;   % ms
-        p.stim_amp = .5*80e-8*Atot;    % uA
-        p.istim = 1;
-
-        ind_last = (icells-1)*(Nint+2+Mdisc)+Nint+1;
-        p.istim = (find(Iind(:,1)<=ind_last & Iind(:,2)==Nnodes));  % indices of axial membrane patch
-        p.indstim = ismember((1:Npatches)',p.istim);
-
-        % extracellular ionic concentrations
-        p.Na_o = Na_o; p.K_o = K_o; p.Ca_o = Ca_o;
-
+%%%% additional ORD11 options - must be after everything else is setup
+switch model 
     case 'ORd11'
-
-        % order is determined by code in fun_name
-        % INa INaL Ito ICaL IKr IKs IK1 INaCa_i INaCa_ss INaK  IKb INab ICab IpCa
-        %          scaleI(2) = 5; scaleI(5) = .15; % generates EADs for bcl = 1000, homogeneous endo, D=1 cable
-
-        % additional scaling factors
-        p.fSERCA = 1; p.fRyR = 1; p.ftauhL = 1;
-        p.fCaMKa = 1; p. fIleak = 1; p.fJrel = 1;
-
-        % ionic model-specific parameters
-        ionic_fun_name = 'fun_ORd11';
-
-        % initial conditions
-        %initial conditions for state variables
-        x0 = Initial_ORd11;
-        %         x0 = 1e2*[-0.879989146999539, 0.070944539841272, 0.070945359018008, 1.448320027716102, 1.448319784601420, 0.000000851590737, 0.000000840540955, 0.016028979649317, 0.015570572412294, 0.000073463295678, 0.006980036544213, 0.006979869883167, 0.006978935065780, 0.004548302689923, 0.006978307799113, 0.000001883686661, 0.005011493681533, 0.002694910834916, 0.000010012992091, 0.009995539443664, 0.005900573961157, 0.000005101890248, 0.009995539516859, 0.006425686271562, 0.000000000023424, 0.009999999908676, 0.009093809723890, 0.009999999908675, 0.009998130840372, 0.009999751803949, 0.000026423594695, 0.009999999908620, 0.009999999908648, 0.000000080785953, 0.004517981715199, 0.002727141574241, 0.000001929116438, 0.009967605243606, 0.000000002422481, 0.000000003026518, 0.000122276951936];
-        %X0 is the vector for initial sconditions for state variables
-
-        Nstate = 41-1;  % number of state variables, excluding Vm, per patch
-
-        % stimulus parameters
-        p.stim_dur = 2;   % ms
-        p.stim_amp = 1*50;    % uA/uF
-
-        ind_last = (icells-1)*(Nint+2+Mdisc)+Nint+1;
-        p.istim = (find(Iind(:,1)<=ind_last & Iind(:,2)==Nnodes)); 
-        p.indstim = ismember((1:Npatches)',p.istim);
-
         % cell type
         p.celltype = zeros(Npatches,1); %endo = 0, epi = 1, M = 2
         transmural_flag = 0;
@@ -645,43 +622,9 @@ switch model
             p.celltype(1+iEndoM+(2*iEndoM-1)*Mdisc:iMEpi+(2*iMEpi-1)*Mdisc) = 2;
             p.celltype(1+iMEpi+(2*iMEpi-1)*Mdisc:end) = 1;
         end
-
-    case 'Court98'
-        % order is determined by code in fun_name
-        % INa IK1 Ito IKur IKr IKs IBNa IBK IBCa INaK ICaP INaCa ICaL
-        %
-        %         loc_vec(p.iito) = locUniform;
-        %         loc_vec(p.iikr) = locUniform;
-        %         loc_vec(p.iiks) = locUniform;
-        % ionic model-specific parameters
-        ionic_fun_name = 'fun_courtemachne98';
-
-        % initial conditions
-        %initial conditions for state variables
-        x0 = Initial_Court98;
-        %X0 is the vector for initial sconditions for state variables
-
-        Nstate = 21-1;  % number of state variables, including Vm, per patch
-        % stimulus parameters
-        p.stim_dur = 1;   % ms
-        p.stim_amp = -60;    % uA/uF
-
-        ind_last = (icells-1)*(Nint+2+Mdisc)+Nint+1;
-        p.istim = (find(Iind(:,1)<=ind_last & Iind(:,2)==Nnodes));   % indices of axial membrane patches
-        p.indstim = ismember((1:Npatches)',p.istim);       
 end
 
-% cleft / bulk ion concentrations
-A_o = Na_o + K_o + 2*Ca_o;  % anion A- concentration, mM
-
-p.bcl = bcl;
-p.Npatches = Npatches;
-p.L = L; p.r = r;
-p.Ctot = Atot*Cm;   % total cell capacitance, uF
-
-Ncleft_comp = length(iEC)-1;
-
-% initalize / load initial conditions
+%%%%% INITIALIZE/LOAD INITIAL COND
 
 if ~load_flag
     phi0 = x0(1)*ones(Nnodes,1); % intracellular nodes
@@ -699,7 +642,7 @@ if ~load_flag
         g0(Npatches*(i-1)+1:i*Npatches) = x0(i+1);
     end
 else
-%     load_data = load(load_name);
+%     load_data = load(load_name); TODO - add load option back
 %     switch load_case
 %         case 'final'
 %             phi0 = final.phi;
@@ -717,19 +660,13 @@ else
 end
 
 
-
-% constants
-F = 96.5;                   % Faraday constant, coulombs/mmol
-R = 8.314;                  % gas constant, J/K
-Temp = 273+37;                 % absolute temperature, K
-RTF=(R*Temp/F);                % mV
-
 % cleft concentration clamping
 clamp_vec = ones(4*Nnodes, 1);
 for i = 1:4
     clamp_vec(iEC(1:end-1) + (i-1)*Nnodes) = clamp_flag(i);
 end
 
+%%%% DISK CURRENT MATRICES
 % "disc" currents: indices of membrane patches that couple to corresponding
 % cleft nodes/compartments (by design, should always be 2 per cleft node,
 % pre- and post-junctional membrane pathces)
@@ -756,59 +693,49 @@ H = sparse(H);
 ionic_fun = str2func(['@(t,x,p,S) ',ionic_fun_name,'(t,x,p,S)']);
 p.f_I = f_I;
 
-
-
-
-
-phi_i = phi0; G_i = g0;
-
 % collect Vm
+phi_i = phi0; G_i = g0;
 Vm = phi_i(Iind(:,1)) - phi_i(Iind(:,2));
 Sp = [Scleft(Iind(:,2)); Scleft(Iind(:,2)+Nnodes); Scleft(Iind(:,2)+2*Nnodes)];
 [~, ~, ~, ~, I_new] = ionic_fun(0, [Vm; G_i], p, Sp);
-
-
-beat_num = ones(Npatches,1);
-tup = nan(Npatches,1);
-trepol = nan(Npatches,1);
-Vm_old = Vm; Vthresh = -60; % mV
 
 %get indices to save phi_axial for full length
 icleft = iEC(1:end-1);
 iintra = setdiff(1:Nnodes-1,icleft);
 [~,ind] = sort(Iind(:,1));
 [ind_axial, ~] = ind2sub([length(ind) length(indices.ind_axial)], find(ind == indices.ind_axial));
-
-% save variables
-count_save = 1; count_all = 1; 
-
-ti = 0;  % initialize time
-tic
 phi_axial_all = zeros(length(ind_axial),length(ts));
 
+% save counters, other times
+count_save = 1; count_all = 1; 
+ti = 0;  % initialize time
+
+beat_num = ones(Npatches,1);
+tup = nan(Npatches,1);
+trepol = nan(Npatches,1);
+Vm_old = Vm; Vthresh = -60; % mV
 
 
+%%%%%% MAIN SIMULATION LOOP
+tic
 while ti < T
     %%%% check mem usage
-    % Get the process ID of the current MATLAB session
-    pid = feature('getpid');
+%     % Get the process ID of the current MATLAB session
+%     pid = feature('getpid');
+% 
+%     % Use the ps command to get the resident set size (RSS) in kilobytes
+%     [status, output] = system(sprintf('ps -o rss= -p %d', pid));
+%     maxMemUsed = 0;
+%     if status == 0
+%         % Convert kilobytes to bytes
+%         currentUsage = str2double(strtrim(output));
+%         % Update maximum memory usage
+%         maxMemUsed = max(maxMemUsed, currentUsage);
+%     else
+%         warning('Failed to retrieve memory usage information.');
+%     end
 
-    % Use the ps command to get the resident set size (RSS) in kilobytes
-    [status, output] = system(sprintf('ps -o rss= -p %d', pid));
-    maxMemUsed = 0;
-    if status == 0
-        % Convert kilobytes to bytes
-        currentUsage = str2double(strtrim(output));
-        % Update maximum memory usage
-        maxMemUsed = max(maxMemUsed, currentUsage);
-    else
-        warning('Failed to retrieve memory usage information.');
-    end
-
-
-
-
-    % display
+    %%%% display
     if ~mod(ti,500)
         disp(save_name + " progress: " + string(ti/T));
     end
@@ -866,7 +793,6 @@ while ti < T
         count_all = count_all + 1;
     end
     
-
     %save last beat - for all 
     if ~mod(ti, dt_samp) && ti>(ts(end) - save_int)
         
@@ -884,9 +810,7 @@ while ti < T
 end
 toc
 
-disp("Max memory used = " + string(maxMemUsed/1000) + " MB")
-
-
+% disp("Max memory used = " + string(maxMemUsed/1000) + " MB")
     
 %save rest of data
 if save_flag_data   
