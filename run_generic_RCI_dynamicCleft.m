@@ -1,27 +1,28 @@
 clear
 
-walltime = getenv('EXP_WALLTIME');
+%%%% start cluster with no of needed sims
+% cycle_vec = [200:5:300 350:50:1000];
+
+scale_gj_loc_vec = [8 4 2 1 1/2 1/4 1/8];
+scale_chan_loc_vec = [8 4 2 1 1/2 1/4 1/8];
+
+% scale_gj_loc_vec = [8 ];
+% scale_chan_loc_vec = [8 ];
+gj_chan_vec = combvec(scale_gj_loc_vec, scale_chan_loc_vec);
+
+N_par = length(gj_chan_vec); 
 
 %%%% CLUSTER SETTINGS - comment out to run locally
-%cluster settings !!! THIS requests compute nodes directly, not the SLURM file !!!
-% requests N_par cores
+%%% cluster settings !!! THIS requests compute nodes directly, not the SLURM file !!!
+%%% requests N_par cores
+walltime = getenv('EXP_WALLTIME');
 cluster = parcluster; % get a handle to cluster profile 
 cluster.AdditionalProperties.AccountName = 'PAS1622'; % set account name 
 cluster.AdditionalProperties.WallTime = walltime; % walltime is set in starting sbatch
 cluster.AdditionalProperties.MemPerCPU = '4gb'; 
 cluster.saveProfile; % locally save the profile
-
-% cycle_vec = [200:5:300 350:50:1000];
-scale_gj_loc_vec = [8 4 2 1 1/2 1/4 1/8];
-scale_chan_loc_vec = [8 4 2 1 1/2 1/4 1/8];
-gj_chan_vec = combvec(scale_gj_loc_vec, scale_chan_loc_vec);
-
-
-% %start cluster with no of needed sims - comment out to run locally
-N_par = length(gj_chan_vec); 
 parpool(cluster,N_par)
 pctRunOnAll warning('off','MATLAB:mir_warning_maybe_uninitialized_temporary')
-
 
 %%%% PARFOR LOOP - switch to for for one local run
 %make sure to make save file name depend on parfor
@@ -88,8 +89,6 @@ tissue_legend = zeros(Njuncs,1) + 1; %index that chooses mesh from FEM_file_list
 scale_gj_loc = gj_chan_vec(1,i_parfor);
 scale_chan_loc = gj_chan_vec(2,i_parfor);
 
-
-gj_chan_vec
 D = 1;
 
 %%%%%% TIME
@@ -101,9 +100,9 @@ T = bcl*nbeats;
 
 % time step (use different time step between stim and twin)
 dt_factor = 1;
-if scale_chan_loc>=5 || scale_gj_loc>=5
-    dt_factor = 5;
-end
+% if scale_chan_loc>=5 || scale_gj_loc>=5
+%     dt_factor = 5;
+% end
 
 dt1 = .01./dt_factor; % ms, dt between stim and twin (0.01 for EpC)
 dt2 = .1./dt_factor; % ms, dt between twin and next stim
@@ -134,7 +133,7 @@ save_flag_data = 1;
 localDir = getenv('TMPDIR') + "/";
 
 save_name = "cycle" + string(bcl) + "_beats" + string(nbeats) + "_D" + string(D) ...
-          + "_gj_loc" + string(scale_gj_loc) + "chan_loc" + string(scale_chan_loc);
+          + "_gj_loc" + string(scale_gj_loc) + "_chan_loc" + string(scale_chan_loc);
 
 % add further mesh names as needed if we have>2 diff IDs 
 if any(tissue_legend==2) 
@@ -148,8 +147,12 @@ end
 save_name = strrep(save_name,'.',''); %remove dot to prevent file extension errors   
 local_save_name = localDir + save_name + ".mat";     
 
-scratchDir_run = "";
+scratchDir_run = "gj_chan_loc_test";
 scratchDir = "/fs/scratch/PAS1622/nickmoise/ID_2025/" + scratchDir_run + "/";
+if ~isempty(scratchDir_run)
+    mkdir(scratchDir);
+end
+
 scratch_save_name = scratchDir + save_name + ".mat";     
 
 mat_file_save = matfile(local_save_name, 'Writable', true);
