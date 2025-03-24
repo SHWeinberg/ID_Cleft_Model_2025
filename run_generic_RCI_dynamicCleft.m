@@ -26,6 +26,13 @@ pctRunOnAll warning('off', 'MATLAB:mir_warning_maybe_uninitialized_temporary')
 
 %%%% PARFOR LOOP - switch to for for one local run
 %make sure to make save file name depend on parfor
+scratchDir_run = "gj_chan_loc_6060_D01";
+scratchDir = "/fs/scratch/PAS1622/nickmoise/ID_2025/" + scratchDir_run + "/";
+
+if ~exist(scratchDir, 'dir')
+    mkdir(scratchDir)
+ end
+ 
 parfor i_parfor = 1:N_par
     
 %%%%% MODEL/TISSUE PARAMS
@@ -79,7 +86,7 @@ FEM_data = load(mesh_folder + FEM_file_list{1});
 FEM_data = FEM_data.FEM_data;
 Ncell = 50; % number of cells
 Njuncs = Ncell-1;
-tissue_legend = zeros(Njuncs, 1) + 1; %index that chooses mesh from FEM_file_list; one less node than Ncell
+tissue_legend = zeros(Njuncs, 1) + 2; %index that chooses mesh from FEM_file_list; one less node than Ncell
 % tissue_legend(21:30) = 2; uniform tissue for CV restitution - comment out
 
 %can make these depend on tissue leg
@@ -89,7 +96,7 @@ tissue_legend = zeros(Njuncs, 1) + 1; %index that chooses mesh from FEM_file_lis
 scale_gj_loc = gj_chan_vec(1, i_parfor);
 scale_chan_loc = gj_chan_vec(2, i_parfor);
 
-D = 1;
+D = 0.1;
 
 %%%%%% TIME
 bcl = 1000;  % ms
@@ -147,12 +154,8 @@ end
 save_name = strrep(save_name, '.', ''); %remove dot to prevent file extension errors   
 local_save_name = localDir + save_name + ".mat";     
 
-scratchDir_run = "gj_chan_loc_base_D1";
-scratchDir = "/fs/scratch/PAS1622/nickmoise/ID_2025/" + scratchDir_run + "/";
 
-if ~exist(scratchDir, 'dir')
-    mkdir(scratchDir)
- end
+
 
 scratch_save_name = scratchDir + save_name + ".mat";     
 
