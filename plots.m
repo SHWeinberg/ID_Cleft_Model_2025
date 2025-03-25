@@ -90,6 +90,42 @@ phi_axial = phi_i(ind_axial,:);
 % % ylim([36,45])
 % ylim([12,18])
 
+%% calcium hetg
+data_dir = "/fs/scratch/PAS1622/nickmoise/ID_2025/" + ...
+           "gj_chan_loc_6060_D1/";
+
+
+
+data_list = dir(data_dir);
+data_list = natsortfiles(data_list);
+data_list(1:2) = [];
+
+scale_gj_loc_vec = [8 4 2 1 1/2 1/4 1/8];
+scale_chan_loc_vec = [8 4 2 1 1/2 1/4 1/8];
+Ca_mat = zeros(7,7);
+[X,Y] = meshgrid(scale_gj_loc_vec,scale_chan_loc_vec);
+
+Njunc = 25;
+thresh_activation = 0;
+cycle_vec = [200:5:300 350:50:1000];
+for i_file = 1:length(data_list)
+    
+    filename = data_dir + "/" +  data_list(i_file).name;
+    load(filename, 'S_save', 'iEC', 'Nnodes', 'Mdisc', ...
+         'scale_gj_loc', 'scale_chan_loc')
+
+    Ca_cleft_all = S_save(iEC+2*Nnodes,:);
+    Ca_cleft = Ca_cleft_all((Njunc-1)*Mdisc+1:Njunc*Mdisc,:); 
+
+    max_Ca = max(Ca_cleft,[],'all');
+
+    Ca_mat(find(scale_gj_loc_vec == scale_gj_loc), ...
+       find(scale_chan_loc_vec == scale_chan_loc)) = max_Ca;
+
+end
+
+figure
+surf(log2(X),log2(Y),Ca_mat)
 
 %% CV resti data
 data_dir = "/fs/scratch/PAS1622/nickmoise/ID_2025/" + ...
